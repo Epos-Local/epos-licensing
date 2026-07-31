@@ -299,6 +299,13 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: var(--vbg-space-4) var(--vbg-space-5);
+
+  /* Each .vbg-field is itself a grid, so a stretched one distributes the row's
+   * spare height across its own rows: a field without a helper line ends up
+   * with its label pushed down and its control taller than the field beside it.
+   * Top-aligning keeps every field at its natural height, so controls sit on
+   * one line and helper text hangs below whichever fields have it. */
+  align-items: start;
 }
 
 .vbg-custom-signin {
