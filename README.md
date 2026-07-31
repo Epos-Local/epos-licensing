@@ -197,11 +197,90 @@ deliberately not retried.
 
 ## Deployment
 
-Vercel, with the same environment variables. `DIRECT_URL` is only needed where
-migrations run. Route handlers use the Node runtime because they need
-`node:crypto`; do not move them to the edge.
+Vercel. `vercel.json` cannot carry comments, so its four decisions are recorded
+here.
 
-Supabase recommends appending `&connection_limit=1` to `DATABASE_URL` for
-serverless deployments, so each function instance holds one pooled connection
-rather than competing for the project's shared budget. Worth adding when this
-goes to Vercel.
+**`buildCommand: "prisma generate && next build"`.** The Prisma client is
+generated to `generated/prisma`, which is gitignored, so it does not arrive with
+the source. `postinstall` normally produces it, but Vercel restores a cached
+`node_modules` and skips install entirely when the lockfile has not changed —
+and a cached client generated against an older schema is worse than none, since
+it builds cleanly and then fails at runtime on a column it does not know about.
+Generating explicitly on every build removes both cases.
+
+**`regions: ["hnd1"]`.** Supabase is in `ap-northeast-1`; `hnd1` is Vercel's
+Tokyo region. Vercel defaults to `iad1` in Washington DC, which would put a
+transpacific round trip on *every* query, and both activation and check-in make
+several in sequence. This is the single largest thing affecting how fast a till
+activates. Move it if the database ever moves. It does not affect the
+`x-vercel-ip-*` headers, which the edge attaches from the caller's own address
+before the request reaches whichever region runs the function.
+
+**`X-Robots-Tag: noindex, nofollow` on everything.** The panel is reachable by
+URL and lists customer names and license keys; it should never appear in a
+search result. `nosniff` and a same-origin referrer policy come along as cheap
+hardening.
+
+**`Cache-Control: no-store` on `/api/*`.** The route handlers are already
+`force-dynamic`, so this changes nothing about Vercel's own behaviour — it
+instructs whatever proxy sits between a shop and here. An activation response
+cached anywhere would either replay an approval after a device was deactivated
+or serve one till's signed blob to another.
+
+Route handlers run on the Node runtime because they need `node:crypto`; do not
+move them to the edge.
+
+### First deploy
+
+```bash
+pnpm dlx vercel link
+pnpm dlx vercel env add AUTH_SECRET production            # npx auth secret
+pnpm dlx vercel env add DATABASE_URL production
+pnpm dlx vercel env add DIRECT_URL production
+pnpm dlx vercel env add LICENSE_SIGNING_PRIVATE_KEY production
+pnpm dlx vercel --prod
+```
+
+Set the variables **before** the first build, not after. `src/env.js` validates
+at build time and `LICENSE_SIGNING_PRIVATE_KEY` is required, so a deploy without
+it fails during the build rather than at the first activation — which is the
+right way round, but it does mean the very first deploy fails if you push first
+and configure second.
+
+Paste the private key as a single line with newlines written as literal `\n`.
+That is what Vercel's UI produces for a multi-line value, and `signing.ts`
+unescapes it. Do not add `ADMIN_EMAIL` or `ADMIN_PASSWORD`: nothing reads them at
+runtime, and the account already exists.
+
+`AUTH_SECRET` must be the same value for the life of the deployment. Changing it
+invalidates every signed-in session, which is a nuisance rather than a
+catastrophe, but it is not a value to rotate casually.
+
+### The schema
+
+There is no `prisma/migrations` directory: the schema has been applied with
+`pnpm db:push`, which is a local operation against `DIRECT_URL` and is not part
+of the Vercel build. So **deploying does not change the database**. After any
+change to `schema.prisma`, run `pnpm db:push` yourself, and do it before
+promoting the deploy that depends on it.
+
+That is fine while this is one operator and one database. Before anyone else
+touches the schema, switch to `prisma migrate dev` locally and add
+`prisma migrate deploy` to the build command, so the schema change and the code
+that needs it ship together and are reviewable.
+
+### Connection limit
+
+Append `&connection_limit=1` to `DATABASE_URL` on Vercel, so each function
+instance holds one pooled connection rather than competing for the project's
+shared budget. Serverless scales instance count rather than per-instance
+concurrency, so a larger pool per instance buys nothing and exhausts Supabase's
+budget sooner.
+
+### The client
+
+The WPF client is not part of this deployment and does not learn the URL by
+itself. After the first successful deploy, set
+`LicenseService.ServerUrl` in `pos_customized` to the production domain and
+rebuild. Use a custom domain rather than a `*.vercel.app` URL: the generated one
+changes with the project name, and the value is compiled into every till.
