@@ -1,0 +1,359 @@
+/*
+ * Page-owned layout only. The Vercel brand foundation in /vercel-brand.css owns
+ * typography, colour, controls and every report primitive; per design.md this
+ * file may not introduce a parallel visual system, may not target a published
+ * .vbg-* selector, and may only read the documented public token families.
+ *
+ * Tailwind is installed but deliberately not imported: its preflight and
+ * utility layer would fight the foundation for the same elements. Reach for
+ * these namespaced rules instead.
+ */
+
+/* --------------------------------------------------------------------------
+ * Application shell
+ *
+ * A report is one page; this panel is several, so it needs the one thing the
+ * foundation's shell does not cover: persistent navigation between them. The
+ * foundation's own primitives assume a single scrolling column, so the
+ * two-column topology is page-owned, which design.md permits when the stock
+ * primitives would distort the material. Everything inside the content column
+ * still runs on the foundation's shell and grid.
+ * -------------------------------------------------------------------------- */
+
+.vbg-custom-app {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.vbg-custom-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vbg-space-6);
+  padding: var(--vbg-space-6) var(--vbg-space-4);
+  background: var(--vbg-surface-secondary);
+  border-right: 1px solid var(--vbg-border-subtle);
+}
+
+/* Identity, not a logo lockup. This is a vendor's internal tool, so the slot
+ * names the product rather than dressing it. */
+.vbg-custom-brand {
+  display: block;
+  padding: 0 var(--vbg-space-3);
+  color: var(--vbg-text-primary);
+  text-decoration: none;
+}
+
+.vbg-custom-brand-name {
+  display: block;
+  font-size: var(--vbg-type-subsection);
+  font-weight: var(--vbg-weight-semibold);
+  line-height: var(--vbg-leading-subsection);
+}
+
+.vbg-custom-brand-role {
+  display: block;
+  margin-top: var(--vbg-space-1);
+  font-size: var(--vbg-type-metadata);
+  line-height: var(--vbg-leading-caption);
+  color: var(--vbg-text-secondary);
+}
+
+/* The nav is the only part that scrolls if the list ever outgrows the viewport,
+ * so identity stays pinned at the top and the operator at the bottom. */
+.vbg-custom-sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.vbg-custom-sidebar-nav ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vbg-custom-sidebar-nav a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--vbg-space-3);
+  padding: var(--vbg-space-2) var(--vbg-space-3);
+  border-left: 2px solid transparent;
+  color: var(--vbg-text-secondary);
+  font-size: var(--vbg-type-body);
+  text-decoration: none;
+}
+
+.vbg-custom-sidebar-nav a:hover {
+  color: var(--vbg-text-primary);
+  background: var(--vbg-surface-primary);
+}
+
+.vbg-custom-sidebar-nav a:focus-visible {
+  outline: 2px solid var(--vbg-focus);
+  outline-offset: -2px;
+}
+
+/* Selection is one of the few states design.md says earns a surface. The left
+ * rule carries it without colour, so it survives both themes and does not rely
+ * on the fill alone. */
+.vbg-custom-sidebar-nav a[aria-current="page"] {
+  border-left-color: var(--vbg-text-primary);
+  background: var(--vbg-surface-primary);
+  color: var(--vbg-text-primary);
+  font-weight: var(--vbg-weight-medium);
+}
+
+/* A queue depth is data, not a badge, so it is set as a plain tabular figure
+ * rather than a capsule. */
+.vbg-custom-sidebar-count {
+  font-size: var(--vbg-type-metadata);
+  font-variant-numeric: tabular-nums;
+  color: var(--vbg-text-secondary);
+}
+
+.vbg-custom-sidebar-nav a[aria-current="page"] .vbg-custom-sidebar-count {
+  color: var(--vbg-text-primary);
+}
+
+.vbg-custom-sidebar-user {
+  display: grid;
+  gap: var(--vbg-space-2);
+  padding: var(--vbg-space-4) var(--vbg-space-3) 0;
+  border-top: 1px solid var(--vbg-border-subtle);
+}
+
+.vbg-custom-sidebar-user-email {
+  font-size: var(--vbg-type-metadata);
+  line-height: var(--vbg-leading-caption);
+  color: var(--vbg-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.vbg-custom-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Below this the sidebar cannot hold its width without squeezing the evidence
+ * tables, so it becomes a header band and the nav scrolls sideways. No drawer,
+ * no toggle: nothing here needs hiding behind a tap. */
+@media (max-width: 60rem) {
+  .vbg-custom-app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vbg-custom-sidebar {
+    position: static;
+    height: auto;
+    gap: var(--vbg-space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--vbg-border-subtle);
+  }
+
+  .vbg-custom-sidebar-nav ul {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    gap: var(--vbg-space-1);
+    overflow-x: auto;
+  }
+
+  .vbg-custom-sidebar-nav a {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .vbg-custom-sidebar-nav a[aria-current="page"] {
+    border-left: 0;
+    border-bottom-color: var(--vbg-text-primary);
+  }
+
+  .vbg-custom-sidebar-user {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--vbg-space-4);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Actions
+ *
+ * Each destructive or state-changing action is its own <form> posting a Server
+ * Action, so a row of them needs to sit on one line without the forms stacking.
+ * -------------------------------------------------------------------------- */
+
+.vbg-custom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vbg-space-3);
+}
+
+.vbg-custom-actions form {
+  display: contents;
+}
+
+/* A control inside a table cell has to give up width so its button stays on the
+ * same line; a full-width field pushes the action onto a second row and breaks
+ * the alignment down the column. */
+.vbg-custom-actions input {
+  max-width: 13rem;
+}
+
+/* A text-weight action for the third or fourth option in a row, where a full
+ * control would give it more consequence than it has earned. */
+.vbg-custom-link-action {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--vbg-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.vbg-custom-link-action:hover {
+  color: var(--vbg-text-primary);
+}
+
+.vbg-custom-link-action[data-tone="destructive"]:hover {
+  color: var(--vbg-color-error);
+}
+
+.vbg-custom-link-action:focus-visible {
+  outline: 2px solid var(--vbg-focus);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+ * Evidence details
+ * -------------------------------------------------------------------------- */
+
+/* Label-over-value pairs for a record's fixed attributes, sharing one baseline
+ * grid so peer values line up down the column. */
+.vbg-custom-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--vbg-space-5) var(--vbg-space-6);
+}
+
+.vbg-custom-fact {
+  min-width: 0;
+}
+
+.vbg-custom-fact dt {
+  color: var(--vbg-text-secondary);
+  font-size: var(--vbg-type-label);
+  line-height: var(--vbg-leading-caption);
+}
+
+.vbg-custom-fact dd {
+  margin: var(--vbg-space-1) 0 0;
+  font-size: var(--vbg-type-body);
+  line-height: var(--vbg-leading-compact);
+  overflow-wrap: anywhere;
+}
+
+/* Status is text, never a coloured capsule. The mark carries the non-colour cue
+ * required alongside any colour, and reads in both themes. */
+.vbg-custom-status {
+  white-space: nowrap;
+}
+
+.vbg-custom-status::before {
+  content: "— ";
+  color: var(--vbg-text-secondary);
+}
+
+.vbg-custom-status[data-state="pending"]::before {
+  content: "? ";
+  color: var(--vbg-color-warning);
+}
+
+.vbg-custom-status[data-state="approved"]::before {
+  content: "+ ";
+  color: var(--vbg-color-success);
+}
+
+.vbg-custom-status[data-state="rejected"]::before,
+.vbg-custom-status[data-state="blocked"]::before {
+  content: "x ";
+  color: var(--vbg-color-error);
+}
+
+/* --------------------------------------------------------------------------
+ * Forms
+ * -------------------------------------------------------------------------- */
+
+.vbg-custom-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--vbg-space-4) var(--vbg-space-5);
+}
+
+.vbg-custom-signin {
+  max-width: 26rem;
+}
+
+/* Server Action validation feedback, sat directly under the control it
+ * qualifies. */
+.vbg-custom-notice {
+  margin-top: var(--vbg-space-3);
+  font-size: var(--vbg-type-compact);
+  line-height: var(--vbg-leading-compact);
+  color: var(--vbg-color-error);
+}
+
+.vbg-custom-notice[data-tone="success"] {
+  color: var(--vbg-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+ * Audit feed
+ *
+ * A ledger of events, not a table: each row is one sentence with a timestamp,
+ * and the reader scans down the sentences rather than across columns.
+ * -------------------------------------------------------------------------- */
+
+.vbg-custom-feed {
+  display: grid;
+  gap: var(--vbg-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vbg-custom-feed-item {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: var(--vbg-space-2) var(--vbg-space-5);
+  padding-bottom: var(--vbg-space-4);
+  border-bottom: 1px solid var(--vbg-border-subtle);
+}
+
+.vbg-custom-feed-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.vbg-custom-feed-detail {
+  color: var(--vbg-text-secondary);
+  font-size: var(--vbg-type-compact);
+  line-height: var(--vbg-leading-compact);
+}
+
+@media (max-width: 48rem) {
+  .vbg-custom-feed-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

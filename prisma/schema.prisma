@@ -1,0 +1,243 @@
+// Shop-locked licensing server for the EPos 365 WPF client.
+// Behavioural spec: ../pos_customized/Licensing_Design.md
+// Signed .lic file format: ../LICENSE_FILE.md
+
+generator client {
+    provider = "prisma-client-js"
+    output   = "../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+    // Transaction-mode pooler (port 6543) for the app: short-lived, high churn.
+    url       = env("DATABASE_URL")
+    // Session-mode pooler (port 5432) for DDL. The transaction pooler cannot
+    // run migrations, so `db push` and `migrate` must not go through it.
+    directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Licensing domain
+// ---------------------------------------------------------------------------
+
+/// A customer. Deliberately minimal per the design doc's "not a full CRM"
+/// framing: just enough to make a license list human-readable and supportable.
+model Shop {
+    id        String   @id @default(cuid())
+    name      String
+    email     String?
+    phone     String?
+    notes     String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    licenses License[]
+
+    @@index([name])
+}
+
+/// `expired` is deliberately absent: expiry is derived from `validUntil` on
+/// read, so there is no second source of truth to fall out of sync with it.
+/// Blocking is the only administrative hard stop.
+enum LicenseStatus {
+    active
+    blocked
+}
+
+model License {
+    id  String @id @default(cuid())
+    /// The key the shop types into Settings > License. Format ABCD-1234-EFGH-5678.
+    key String @unique
+
+    shopId String
+    shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+    /// Written into the signed blob's ShopLabel field, so it is what the
+    /// cashier sees on their own License screen. Defaults to the shop name.
+    shopLabel String?
+
+    /// Per-license, not global, so a negotiated exception for one customer is a
+    /// data change rather than a code change (Licensing_Design.md, open q. 6).
+    maxDevices Int @default(2)
+
+    status     LicenseStatus @default(active)
+    validUntil DateTime
+    issuedAt   DateTime      @default(now())
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    devices     Device[]
+    auditEvents AuditEvent[]
+
+    @@index([shopId])
+    @@index([status])
+}
+
+enum DeviceStatus {
+    /// Counts against maxDevices. Receives a signed blob on activate/checkin.
+    approved
+    /// Geo did not match the approved cluster. Sits in the review queue and
+    /// does NOT count against maxDevices.
+    pending
+    /// Admin said no. Terminal; its next check-in gets 410.
+    rejected
+    /// Admin freed the slot (DELETE /device). Terminal for this row; the
+    /// hardware may re-activate and will be treated as a brand new device.
+    deactivated
+}
+
+/// One physical till. `deviceId` is the client's locally generated GUID,
+/// `hardwareFingerprint` is the WMI-serial SHA-256 kept purely as an audit
+/// trail (never as the shop-membership signal).
+model Device {
+    id String @id @default(cuid())
+
+    licenseId String
+    license   License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+    deviceId            String
+    hardwareFingerprint String
+
+    status DeviceStatus @default(pending)
+
+    /// Locality signal recorded on every activate/checkin. The first approved
+    /// device's values become the license's geo baseline.
+    lastKnownIp String?
+    geoCountry  String?
+    geoRegion   String?
+    geoCity     String?
+
+    /// True for the first-ever approved device: the row every later device's
+    /// geo is compared against.
+    isBaseline Boolean @default(false)
+
+    firstSeenAt DateTime  @default(now())
+    lastCheckIn DateTime?
+    approvedAt  DateTime?
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    auditEvents AuditEvent[]
+
+    /// A device may only appear once per license. Re-activating the same
+    /// deviceId updates the existing row rather than creating a duplicate.
+    @@unique([licenseId, deviceId])
+    @@index([status])
+    @@index([deviceId])
+}
+
+enum AuditEventType {
+    license_created
+    license_updated
+    license_blocked
+    license_unblocked
+    license_key_regenerated
+    shop_created
+    shop_updated
+    admin_created
+    admin_deleted
+    admin_password_changed
+    activation_approved
+    activation_pending
+    activation_denied_device_limit
+    activation_denied_blocked
+    checkin
+    checkin_denied
+    device_approved
+    device_rejected
+    device_deactivated
+    license_file_generated
+}
+
+/// Append-only feed. Nothing in the app updates or deletes these rows.
+model AuditEvent {
+    id   String         @id @default(cuid())
+    type AuditEventType
+
+    licenseId String?
+    license   License? @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+
+    deviceId String?
+    device   Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+    /// Human-readable one-liner rendered directly in the audit view.
+    summary String
+
+    /// Who caused it: an admin's email, or "client" for machine-driven events.
+    actor String
+
+    ip   String?
+    geo  String?
+    /// Any extra structured context worth keeping (limits, old/new values).
+    meta Json?
+
+    createdAt DateTime @default(now())
+
+    @@index([createdAt])
+    @@index([licenseId, createdAt])
+    @@index([type])
+}
+
+// ---------------------------------------------------------------------------
+// Admin auth. Accounts live here and are managed from the panel; the seed
+// script only bootstraps the first one, since somebody has to be able to sign
+// in before anybody can be added through the UI.
+//
+// Every account carries the same authority. Licensing_Design.md anticipates a
+// reseller-scoped role later, and adding a `role` column here is all that would
+// take.
+// ---------------------------------------------------------------------------
+
+model User {
+    id            String    @id @default(cuid())
+    name          String?
+    email         String    @unique
+    emailVerified DateTime?
+    image         String?
+    /// bcrypt hash, cost 12. Null means the account cannot sign in with a
+    /// password, which is what an OAuth-only account would look like if one is
+    /// ever added.
+    passwordHash  String?
+    createdAt     DateTime  @default(now())
+    /// Defaulted as well as `@updatedAt` so the column could be added to a
+    /// table that already had the bootstrap account in it.
+    updatedAt     DateTime  @default(now()) @updatedAt
+    accounts      Account[]
+    sessions      Session[]
+}
+
+model Account {
+    id                       String  @id @default(cuid())
+    userId                   String
+    type                     String
+    provider                 String
+    providerAccountId        String
+    refresh_token            String?
+    access_token             String?
+    expires_at               Int?
+    token_type               String?
+    scope                    String?
+    id_token                 String?
+    session_state            String?
+    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    refresh_token_expires_in Int?
+
+    @@unique([provider, providerAccountId])
+}
+
+model Session {
+    id           String   @id @default(cuid())
+    sessionToken String   @unique
+    userId       String
+    expires      DateTime
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
+}
