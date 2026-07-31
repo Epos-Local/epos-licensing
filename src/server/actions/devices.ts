@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import {
   approveDevice,
   deactivateDeviceRow,
+  reactivateDevice,
   rejectDevice,
 } from "~/server/licensing/service";
 
@@ -63,6 +64,29 @@ export async function deactivateDeviceAction(
   redirectWithNotice(
     returnTo,
     "Device deactivated. Its slot is free and its next check-in will be refused.",
+    "success",
+  );
+}
+
+export async function reactivateDeviceAction(
+  formData: FormData,
+): Promise<void> {
+  const actor = await requireAdmin();
+  const { deviceRowId, returnTo } = readTarget(formData);
+
+  const result = await reactivateDevice(deviceRowId, actor);
+
+  if (!result.ok) {
+    redirectWithNotice(
+      returnTo,
+      result.error ?? "Could not reactivate device.",
+    );
+  }
+
+  revalidatePath(returnTo);
+  redirectWithNotice(
+    returnTo,
+    "Device reactivated. It holds a slot again and its next check-in will be approved.",
     "success",
   );
 }

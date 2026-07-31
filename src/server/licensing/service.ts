@@ -324,6 +324,72 @@ export async function deactivateDeviceRow(
   });
 }
 
+/**
+ * Undoes a deactivation, taking the slot back.
+ *
+ * Deactivation is the one reversible verdict here: it means "this till is not in
+ * use", not "this till is not trusted", so the way back is an admin saying so
+ * rather than the shop re-running activation. Rejection is deliberately not
+ * reversible this way — a rejected device failed the location check, and putting
+ * it back needs the same evidence the queue shows, so it goes through /activate
+ * and lands in the queue again.
+ *
+ * Re-checks the cap, because the slot this device gave up may have been taken by
+ * another till in the meantime, and re-takes the baseline if the license has
+ * been left with no approved device to cluster against.
+ *
+ * Logged as `device_approved` rather than a type of its own: the audit feed
+ * reads summaries and this is an approval by another name, so a new enum value
+ * would need a schema push to buy nothing.
+ */
+export async function reactivateDevice(
+  deviceRowId: string,
+  actor: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const device = await db.device.findUnique({
+    where: { id: deviceRowId },
+    include: { license: true },
+  });
+  if (!device) return { ok: false, error: "unknown device" };
+
+  if (device.status !== DeviceStatus.deactivated) {
+    return {
+      ok: false,
+      error: `Only a deactivated device can be reactivated; this one is ${device.status}.`,
+    };
+  }
+
+  const approvedCount = await db.device.count({
+    where: { licenseId: device.licenseId, status: DeviceStatus.approved },
+  });
+
+  if (approvedCount >= device.license.maxDevices) {
+    return {
+      ok: false,
+      error: `This license already has ${approvedCount} of ${device.license.maxDevices} devices approved. Deactivate one first.`,
+    };
+  }
+
+  await db.device.update({
+    where: { id: device.id },
+    data: {
+      status: DeviceStatus.approved,
+      approvedAt: new Date(),
+      isBaseline: approvedCount === 0,
+    },
+  });
+
+  await audit({
+    type: AuditEventType.device_approved,
+    licenseId: device.licenseId,
+    deviceId: device.id,
+    actor,
+    summary: `Device ${short(device.deviceId)} reactivated, taking a slot back`,
+  });
+
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Admin decisions on the pending queue
 // ---------------------------------------------------------------------------

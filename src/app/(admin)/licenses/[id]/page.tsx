@@ -14,6 +14,7 @@ import {
 import {
   approveDeviceAction,
   deactivateDeviceAction,
+  reactivateDeviceAction,
   rejectDeviceAction,
 } from "~/server/actions/devices";
 import {
@@ -232,6 +233,24 @@ export default async function LicenseDetailPage({
                               </button>
                             </form>
                           </>
+                        )}
+
+                        {device.status === "deactivated" && (
+                          <form action={reactivateDeviceAction}>
+                            <input
+                              type="hidden"
+                              name="deviceRowId"
+                              value={device.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="returnTo"
+                              value={returnTo}
+                            />
+                            <button type="submit" className="vbg-button">
+                              Reactivate
+                            </button>
+                          </form>
                         )}
                       </div>
                     </td>
