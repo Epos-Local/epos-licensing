@@ -22,7 +22,9 @@ import {
   getPublicKeyPkcs1Base64,
   serializeBlob,
   signBlob,
+  signServerTime,
   toLicenseFileJson,
+  verifyServerTime,
   verifySignedBlob,
   type SerializedLicenseBlob,
 } from "~/server/licensing/signing";
@@ -292,6 +294,55 @@ checkEqual(
 check(
   "it decodes to a 270 byte PKCS#1 RSAPublicKey structure",
   Buffer.from(publicKey, "base64").length === 270,
+);
+
+// ---------------------------------------------------------------------------
+// Signed server time — the till's staff clock anchor
+// ---------------------------------------------------------------------------
+//
+// The POS pays wages from staff sign-in/sign-out times taken off the Windows
+// clock, which a member of staff with local admin can wind forward. This
+// timestamp is the only reference the till has that it cannot itself alter, so
+// the signature is the entire point: an unsigned value would be forgeable by
+// whoever controls the machine or its DNS.
+
+group("Signed server time (staff clock anchor)");
+
+const signedTime = signServerTime(new Date("2026-08-04T12:00:00Z"));
+
+check(
+  "server time is emitted in the canonical, whole-second Z form the client parses",
+  signedTime.ServerTimeUtc === "2026-08-04T12:00:00Z",
+);
+
+check(
+  "a genuine signed server time verifies against the public key the client embeds",
+  verifyServerTime(
+    signedTime.ServerTimeUtc,
+    signedTime.ServerTimeSignature,
+    publicKey,
+  ),
+);
+
+check(
+  "a different timestamp does NOT verify against that signature (the forgery that matters)",
+  !verifyServerTime(
+    "2026-08-04T20:00:00Z",
+    signedTime.ServerTimeSignature,
+    publicKey,
+  ),
+);
+
+check(
+  "an empty signature is refused rather than treated as unsigned-but-fine",
+  !verifyServerTime(signedTime.ServerTimeUtc, "", publicKey),
+);
+
+check(
+  "signing the timestamp leaves the license blob's canonical bytes untouched",
+  canonicalPayloadJson(serializeBlob(blobInput())) ===
+    canonicalPayloadJson(serializeBlob(blobInput())) &&
+    !canonicalPayloadJson(serializeBlob(blobInput())).includes("ServerTime"),
 );
 
 summarize("Signing verification");
