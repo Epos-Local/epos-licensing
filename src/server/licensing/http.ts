@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { LicenseServerResponseBody, LicenseServerResult } from "./service";
-import { canonicalPayloadJson } from "./signing";
+import { canonicalPayloadJson, signServerTime } from "./signing";
 
 /**
  * The WPF client posts `System.Text.Json`'s default output, which is PascalCase.
@@ -83,6 +83,17 @@ export function serializeResponseBody(body: LicenseServerResponseBody): string {
   parts.push(`"ApprovalState":${JSON.stringify(body.ApprovalState)}`);
   parts.push(
     `"Error":${body.Error === null ? "null" : JSON.stringify(body.Error)}`,
+  );
+
+  // Signed server time, for the till's staff clock-in/out records. Emitted on
+  // every response, including "pending" and "blocked" ones: a shop whose license
+  // is in trouble still has staff whose hours have to be right, and this costs
+  // one signature. See `signServerTime` for why it is signed separately from the
+  // license blob rather than added to it.
+  const serverTime = signServerTime();
+  parts.push(`"ServerTimeUtc":${JSON.stringify(serverTime.ServerTimeUtc)}`);
+  parts.push(
+    `"ServerTimeSignature":${JSON.stringify(serverTime.ServerTimeSignature)}`,
   );
 
   if (body.MaxDevices !== undefined)

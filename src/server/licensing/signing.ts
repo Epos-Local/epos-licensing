@@ -236,6 +236,67 @@ export function signBlob(payload: LicenseBlob): SignedLicenseBlob {
 }
 
 /**
+ * A signed "what time is it" statement, for the till's staff clock.
+ *
+ * The POS records staff work sessions from sign-in to sign-out and pays wages
+ * off them, but it is an offline single-till product whose only clock is the
+ * Windows one — which a member of staff with local admin can simply wind
+ * forward. The client detects a change made *while it is running* by comparing
+ * against a monotonic timer, but it cannot see a change made while it is closed.
+ * This gives it a reference it can trust whenever it has a network.
+ *
+ * Signed on its own rather than added to {@link LicenseBlob}, deliberately.
+ * That blob's byte layout is load-bearing for its signature (see
+ * `canonicalPayloadJson`), so adding a field would invalidate every license
+ * already issued and force a lockstep client rollout. A separate signature over
+ * just the timestamp is additive: old clients ignore the new response fields,
+ * and new clients treat them as optional.
+ *
+ * Signing matters here — an unsigned timestamp (or the HTTP `Date` header)
+ * would be forgeable by anything sitting between the till and this server,
+ * including a hosts-file entry pointing at a machine the same member of staff
+ * controls. The client verifies this with the public key it already embeds.
+ */
+export function signServerTime(now: Date = new Date()): {
+  ServerTimeUtc: string;
+  ServerTimeSignature: string;
+} {
+  const serverTimeUtc = toCanonicalDate(now);
+  const signature = cryptoSign("sha256", Buffer.from(serverTimeUtc, "utf8"), {
+    key: getPrivateKey(),
+    padding: constants.RSA_PKCS1_PADDING,
+  });
+
+  return { ServerTimeUtc: serverTimeUtc, ServerTimeSignature: signature.toString("base64") };
+}
+
+/** {@link signServerTime}'s counterpart, so the suite can prove a round trip. */
+export function verifyServerTime(
+  serverTimeUtc: string,
+  signatureBase64: string,
+  publicKeyPkcs1Base64?: string,
+): boolean {
+  try {
+    const key = publicKeyPkcs1Base64
+      ? createPublicKey({
+          key: Buffer.from(publicKeyPkcs1Base64, "base64"),
+          format: "der",
+          type: "pkcs1",
+        })
+      : createPublicKey(getPrivateKey());
+
+    return cryptoVerify(
+      "sha256",
+      Buffer.from(serverTimeUtc, "utf8"),
+      { key, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.from(signatureBase64, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The client's `LicenseBlobSigning.Verify` reimplemented here, so the test
  * suite can prove a blob this server produced is one the client will accept
  * without needing a .NET runtime in the loop.
