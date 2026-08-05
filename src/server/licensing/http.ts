@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  currentUpdateAnnouncement,
+  type UpdateAnnouncement,
+} from "./releases";
 import type { LicenseServerResponseBody, LicenseServerResult } from "./service";
 import { canonicalPayloadJson, signServerTime } from "./signing";
 
@@ -65,8 +69,16 @@ export async function readJsonBody(request: Request): Promise<unknown> {
  * writes back out through "Copy license to file" are byte-identical, which
  * turns a support question about a mismatched license into a diff.
  */
-export function licenseResponse(result: LicenseServerResult): Response {
-  return new Response(serializeResponseBody(result.body), {
+export async function licenseResponse(
+  result: LicenseServerResult,
+): Promise<Response> {
+  // Emitted on every response, including refusals — the same reasoning as the
+  // signed server time below. A till whose licence is in trouble is if anything
+  // more likely to be running an old build, and a shop that is blocked for being
+  // out of date has to be told so on the very response that blocks it.
+  const update = await currentUpdateAnnouncement();
+
+  return new Response(serializeResponseBody(result.body, update), {
     status: result.status,
     headers: {
       "content-type": "application/json; charset=utf-8",
@@ -77,7 +89,10 @@ export function licenseResponse(result: LicenseServerResult): Response {
   });
 }
 
-export function serializeResponseBody(body: LicenseServerResponseBody): string {
+export function serializeResponseBody(
+  body: LicenseServerResponseBody,
+  update: UpdateAnnouncement | null = null,
+): string {
   const parts: string[] = [];
 
   parts.push(
@@ -102,6 +117,20 @@ export function serializeResponseBody(body: LicenseServerResponseBody): string {
   parts.push(
     `"ServerTimeSignature":${JSON.stringify(serverTime.ServerTimeSignature)}`,
   );
+
+  // Signed independently of the licence blob, so a client that predates this
+  // simply ignores the extra fields and no licence already issued is affected.
+  // Omitted entirely when nothing is published, which is what a client reads as
+  // "no update exists" rather than "an update of version ''".
+  if (update) {
+    parts.push(`"UpdateVersion":${JSON.stringify(update.UpdateVersion)}`);
+    parts.push(
+      `"UpdateMinimumVersion":${JSON.stringify(update.UpdateMinimumVersion)}`,
+    );
+    parts.push(`"UpdateUrl":${JSON.stringify(update.UpdateUrl)}`);
+    parts.push(`"UpdateSha256":${JSON.stringify(update.UpdateSha256)}`);
+    parts.push(`"UpdateSignature":${JSON.stringify(update.UpdateSignature)}`);
+  }
 
   if (body.MaxDevices !== undefined)
     parts.push(`"MaxDevices":${body.MaxDevices}`);

@@ -270,6 +270,91 @@ export function signServerTime(now: Date = new Date()): {
   return { ServerTimeUtc: serverTimeUtc, ServerTimeSignature: signature.toString("base64") };
 }
 
+/**
+ * The bytes an update announcement is signed over: the fields joined with a
+ * character that cannot appear in any of them.
+ *
+ * Every field is inside the signature, including the download URL and the
+ * installer's hash. That is the whole point of signing this at all — the client
+ * downloads and executes what these fields describe, so anything left outside
+ * the signature is a field an attacker between the till and this server gets to
+ * choose. Change this format and every client in the field stops accepting
+ * updates until it is upgraded, which is exactly the caution it deserves.
+ */
+export function canonicalUpdatePayload(update: {
+  version: string;
+  minimumVersion: string;
+  downloadUrl: string;
+  sha256: string | null;
+}): string {
+  return [
+    update.version,
+    update.minimumVersion,
+    update.downloadUrl,
+    update.sha256 ?? "",
+  ].join("|");
+}
+
+/**
+ * Signs the "there is a new build" announcement carried on every licensing
+ * response.
+ *
+ * Separately signed for the same reason as {@link signServerTime}: the licence
+ * blob's byte layout is load-bearing for its own signature, so this has to be
+ * additive or every licence already issued would have to be reissued.
+ *
+ * Unsigned, these fields would hand anyone who can intercept a till's traffic
+ * two things worth having: raise `minimumVersion` and every till in the field
+ * stops taking payment, or swap `downloadUrl`/`sha256` and the till installs
+ * whatever they like without anyone touching the machine. Neither is a risk
+ * this feature is allowed to introduce.
+ */
+export function signUpdate(update: {
+  version: string;
+  minimumVersion: string;
+  downloadUrl: string;
+  sha256: string | null;
+}): string {
+  const signature = cryptoSign(
+    "sha256",
+    Buffer.from(canonicalUpdatePayload(update), "utf8"),
+    { key: getPrivateKey(), padding: constants.RSA_PKCS1_PADDING },
+  );
+
+  return signature.toString("base64");
+}
+
+/** {@link signUpdate}'s counterpart, so the suite can prove a round trip. */
+export function verifyUpdate(
+  update: {
+    version: string;
+    minimumVersion: string;
+    downloadUrl: string;
+    sha256: string | null;
+  },
+  signatureBase64: string,
+  publicKeyPkcs1Base64?: string,
+): boolean {
+  try {
+    const key = publicKeyPkcs1Base64
+      ? createPublicKey({
+          key: Buffer.from(publicKeyPkcs1Base64, "base64"),
+          format: "der",
+          type: "pkcs1",
+        })
+      : createPublicKey(getPrivateKey());
+
+    return cryptoVerify(
+      "sha256",
+      Buffer.from(canonicalUpdatePayload(update), "utf8"),
+      { key, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.from(signatureBase64, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** {@link signServerTime}'s counterpart, so the suite can prove a round trip. */
 export function verifyServerTime(
   serverTimeUtc: string,

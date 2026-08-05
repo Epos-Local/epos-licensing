@@ -30,6 +30,7 @@ import {
 import {
   getPublicKeyPkcs1Base64,
   verifySignedBlob,
+  verifyUpdate,
   type SerializedLicenseBlob,
 } from "~/server/licensing/signing";
 
@@ -819,6 +820,119 @@ async function run() {
     backHome.status,
     200,
   );
+
+  // -------------------------------------------------------------------------
+  group("Update announcements");
+
+  const l10 = await makeLicense("updates");
+  const l10Device = deviceId();
+
+  const noRelease = await post("/api/activate", activateBody(l10.key, l10Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+  check(
+    "nothing published means the fields are absent, not empty",
+    !("UpdateVersion" in (JSON.parse(noRelease.raw) as object)),
+    noRelease.raw,
+  );
+
+  const release = await db.appRelease.create({
+    data: {
+      version: "0.4.0",
+      minimumVersion: "0.3.0",
+      downloadUrl: "https://releases.example/EPos365-Setup.exe",
+      sha256: "a".repeat(64),
+      notes: RUN,
+      isPublished: true,
+      publishedAt: new Date(),
+    },
+  });
+
+  const announced = await post("/api/checkin", checkInBody(l10.key, l10Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+  const update = JSON.parse(announced.raw) as {
+    UpdateVersion?: string;
+    UpdateMinimumVersion?: string;
+    UpdateUrl?: string;
+    UpdateSha256?: string;
+    UpdateSignature?: string;
+  };
+
+  checkEqual("a published release rides along on check-in", update.UpdateVersion, "0.4.0");
+  checkEqual("with the floor that decides blocking", update.UpdateMinimumVersion, "0.3.0");
+  checkEqual("the installer link", update.UpdateUrl, release.downloadUrl);
+  checkEqual("and the hash the till verifies it against", update.UpdateSha256, release.sha256);
+
+  check(
+    "the announcement verifies against the public key the client embeds",
+    verifyUpdate(
+      {
+        version: update.UpdateVersion!,
+        minimumVersion: update.UpdateMinimumVersion!,
+        downloadUrl: update.UpdateUrl!,
+        sha256: update.UpdateSha256!,
+      },
+      update.UpdateSignature!,
+      publicKey,
+    ),
+  );
+
+  // The signature has to cover every field the till acts on, or an interceptor
+  // picks the ones it left out — the floor that stops every till selling, or the
+  // binary the till downloads and runs.
+  check(
+    "and stops verifying the moment the floor is altered",
+    !verifyUpdate(
+      {
+        version: update.UpdateVersion!,
+        minimumVersion: "9.9.9",
+        downloadUrl: update.UpdateUrl!,
+        sha256: update.UpdateSha256!,
+      },
+      update.UpdateSignature!,
+      publicKey,
+    ),
+  );
+  check(
+    "or the download link",
+    !verifyUpdate(
+      {
+        version: update.UpdateVersion!,
+        minimumVersion: update.UpdateMinimumVersion!,
+        downloadUrl: "https://evil.example/setup.exe",
+        sha256: update.UpdateSha256!,
+      },
+      update.UpdateSignature!,
+      publicKey,
+    ),
+  );
+
+  // Refusals carry it too: a till blocked for being out of date has to learn
+  // that on the very response that blocks it.
+  const refused = await post("/api/activate", activateBody("ZZZZ-9999-ZZZZ-9999", deviceId()));
+  checkEqual(
+    "even a rejected request is told about the update",
+    (JSON.parse(refused.raw) as { UpdateVersion?: string }).UpdateVersion,
+    "0.4.0",
+  );
+
+  await db.appRelease.update({
+    where: { id: release.id },
+    data: { isPublished: false },
+  });
+
+  const withdrawn = await post("/api/checkin", checkInBody(l10.key, l10Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+  check(
+    "withdrawing it takes the announcement away again",
+    !("UpdateVersion" in (JSON.parse(withdrawn.raw) as object)),
+    withdrawn.raw,
+  );
 }
 
 async function teardown() {
@@ -838,6 +952,11 @@ async function teardown() {
   await db.auditEvent.deleteMany({
     where: { summary: { contains: "ZZZZ-9999-ZZZZ-9999" } },
   });
+
+  // Releases are global rather than per-license, so they carry the run in
+  // `notes` and are removed by that. The cache is dropped too, or a warm
+  // instance would keep announcing a release that no longer exists.
+  await db.appRelease.deleteMany({ where: { notes: RUN } });
 }
 
 try {

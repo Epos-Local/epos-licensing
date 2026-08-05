@@ -38,5 +38,5 @@ export async function POST(request: Request): Promise<Response> {
     geo: readRequestGeo(request.headers),
   });
 
-  return licenseResponse(result);
+  return await licenseResponse(result);
 }

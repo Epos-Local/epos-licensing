@@ -150,6 +150,61 @@ model Device {
     @@index([deviceId])
 }
 
+/// One published build of the WPF client.
+///
+/// Rows are append-only in practice: publishing a new version means adding a
+/// row, never editing the old one, so the audit feed and any till that has
+/// already been told about a version keep agreeing about what that version was.
+///
+/// The newest published row is the one every till is measured against — see
+/// `currentRelease` in the licensing service.
+model AppRelease {
+    id String @id @default(cuid())
+
+    /// The build being offered, e.g. "0.4.0". Compared against the till's own
+    /// assembly version (the same number Settings > About shows).
+    version String
+
+    /// The hard floor. A till older than this is refused checkout, exactly as a
+    /// blocked licence is.
+    ///
+    /// A floor rather than a per-release "mandatory" flag on purpose. A flag
+    /// lives on whichever row is newest, so publishing a later optional release
+    /// would silently lift the block an earlier mandatory one imposed — the
+    /// shops furthest behind, the ones the block was for, would be released
+    /// first. A floor only ever ratchets upward. The admin form still presents
+    /// this as the soft/hard choice it is: "hard" sets it to `version`, "soft"
+    /// leaves the previous floor where it was.
+    minimumVersion String
+
+    /// Where the installer lives. Must be https — the client will not execute
+    /// anything fetched over plain http.
+    downloadUrl String
+
+    /// Lowercase hex SHA-256 of the installer at `downloadUrl`.
+    ///
+    /// The signature over this row covers the URL, but a URL is a pointer: it
+    /// says nothing about the bytes served from it later. The client downloads
+    /// and RUNS this file unattended, so it verifies the hash before executing
+    /// and falls back to merely opening the link when this is absent. Nullable
+    /// only so a row can exist before the hash is known; publish without it and
+    /// the auto-install path stays switched off.
+    sha256 String?
+
+    /// Shown to the shop under the update banner. Plain text, kept short.
+    notes String?
+
+    /// Unpublished rows are invisible to every till, so a release can be staged
+    /// and checked before anyone is offered it.
+    isPublished Boolean   @default(false)
+    publishedAt DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([isPublished, publishedAt])
+}
+
 enum AuditEventType {
     license_created
     license_updated
@@ -171,6 +226,8 @@ enum AuditEventType {
     device_rejected
     device_deactivated
     license_file_generated
+    release_published
+    release_unpublished
 }
 
 /// Append-only feed. Nothing in the app updates or deletes these rows.
