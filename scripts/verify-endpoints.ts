@@ -24,6 +24,7 @@ import { generateLicenseKey } from "~/server/licensing/license-key";
 import {
   approveDevice,
   deactivateDeviceRow,
+  reactivateDevice,
   rejectDevice,
 } from "~/server/licensing/service";
 import {
@@ -113,6 +114,35 @@ function checkInBody(licenseKey: string, deviceId: string) {
     LicenseKey: licenseKey,
     DeviceId: deviceId,
     HardwareFingerprint: randomBytes(32).toString("hex").toUpperCase(),
+  };
+}
+
+/**
+ * POST /release answers with its own small shape rather than a license body,
+ * so it needs its own poster. A fresh fingerprint every call is deliberate: a
+ * shop replacing hardware is exactly who releases a device, and the endpoint
+ * must not quietly depend on the fingerprint matching.
+ */
+async function postRelease(
+  licenseKey: string,
+  deviceId: string,
+): Promise<{
+  status: number;
+  body: { Ok: boolean; Error: string | null; RetryAfterUtc: string | null };
+}> {
+  const response = await fetch(`${BASE}/api/release`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(checkInBody(licenseKey, deviceId)),
+  });
+
+  return {
+    status: response.status,
+    body: (await response.json()) as {
+      Ok: boolean;
+      Error: string | null;
+      RetryAfterUtc: string | null;
+    },
   };
 }
 
@@ -567,6 +597,208 @@ async function run() {
     where: { licenseId: l1.id, deviceId: deviceA },
   });
   checkEqual("and changes nothing", stillThere?.status, "approved");
+
+  // -------------------------------------------------------------------------
+  group("A till releasing its own slot");
+
+  const l6 = await makeLicense("self-release", 1);
+  const l6Device = deviceId();
+  await post("/api/activate", activateBody(l6.key, l6Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+
+  const cappedBeforeRelease = await post(
+    "/api/activate",
+    activateBody(l6.key, deviceId()),
+    { geo: LONDON, ip: LONDON_IP_A },
+  );
+  checkEqual(
+    "a second device is refused while the first holds the only slot",
+    cappedBeforeRelease.status,
+    403,
+  );
+
+  const released = await postRelease(l6.key, l6Device);
+  checkEqual("POST /api/release accepts the device's own id", released.status, 200);
+  checkEqual("and reports success", released.body.Ok, true);
+
+  const releasedRow = await db.device.findFirst({
+    where: { licenseId: l6.id, deviceId: l6Device },
+  });
+  checkEqual("the row is deactivated", releasedRow?.status, "deactivated");
+  check(
+    "and stamped so the cooldown can be enforced",
+    releasedRow?.lastSelfReleaseAt instanceof Date,
+  );
+
+  const releasedCheckIn = await post(
+    "/api/checkin",
+    checkInBody(l6.key, l6Device),
+  );
+  checkEqual(
+    "the released till's next check-in is refused",
+    releasedCheckIn.status,
+    410,
+  );
+
+  const intoFreedSlot = await post(
+    "/api/activate",
+    activateBody(l6.key, deviceId()),
+    { geo: LONDON, ip: LONDON_IP_B },
+  );
+  checkEqual(
+    "and the freed slot lets the replacement machine activate",
+    intoFreedSlot.status,
+    200,
+  );
+
+  // -------------------------------------------------------------------------
+  group("Release is idempotent, and rate limited");
+
+  const repeat = await postRelease(l6.key, l6Device);
+  checkEqual(
+    "releasing an already-released device is not an error",
+    repeat.status,
+    200,
+  );
+
+  // Put it back the way an admin would, so the cooldown is what refuses the
+  // next release rather than the device simply having no slot to give up.
+  await reactivateDevice(releasedRow!.id, "verify@example.invalid");
+
+  const tooSoon = await postRelease(l6.key, l6Device);
+  checkEqual("a second release within 24h is refused", tooSoon.status, 429);
+  checkEqual("with Ok false", tooSoon.body.Ok, false);
+  check(
+    "and says when the next one is possible",
+    typeof tooSoon.body.RetryAfterUtc === "string" &&
+      new Date(tooSoon.body.RetryAfterUtc).getTime() > Date.now(),
+    `RetryAfterUtc was ${JSON.stringify(tooSoon.body.RetryAfterUtc)}`,
+  );
+
+  const stillHeld = await db.device.findFirst({
+    where: { licenseId: l6.id, deviceId: l6Device },
+  });
+  checkEqual("the slot is still held", stillHeld?.status, "approved");
+
+  const strangerRelease = await postRelease(l6.key, deviceId());
+  checkEqual(
+    "and a device not on the license cannot release anything",
+    strangerRelease.status,
+    404,
+  );
+
+  // -------------------------------------------------------------------------
+  group("Stale devices give their slots back");
+
+  const l7 = await makeLicense("stale-reclaim", 1);
+  const l7Old = deviceId();
+  await post("/api/activate", activateBody(l7.key, l7Old), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+
+  // 100 days without a check-in: past the 90-day threshold, and well past the
+  // client's own 14-day offline grace.
+  await db.device.updateMany({
+    where: { licenseId: l7.id, deviceId: l7Old },
+    data: { lastCheckIn: new Date(Date.now() - 100 * 86_400_000) },
+  });
+
+  const afterReclaim = await post(
+    "/api/activate",
+    activateBody(l7.key, deviceId()),
+    { geo: LONDON, ip: LONDON_IP_B },
+  );
+  checkEqual(
+    "a new till activates into the slot a dormant one was holding",
+    afterReclaim.status,
+    200,
+  );
+
+  const reclaimedRow = await db.device.findFirst({
+    where: { licenseId: l7.id, deviceId: l7Old },
+  });
+  checkEqual("the dormant device is deactivated", reclaimedRow?.status, "deactivated");
+
+  const reclaimAudit = await db.auditEvent.findFirst({
+    where: { licenseId: l7.id, type: "device_deactivated" },
+  });
+  checkEqual(
+    "credited to the system, not to an admin who did nothing",
+    reclaimAudit?.actor,
+    "system",
+  );
+
+  const l8 = await makeLicense("fresh-not-stale", 1);
+  const l8Device = deviceId();
+  await post("/api/activate", activateBody(l8.key, l8Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+  const notStale = await post("/api/activate", activateBody(l8.key, deviceId()), {
+    geo: LONDON,
+    ip: LONDON_IP_B,
+  });
+  checkEqual(
+    "a device that checked in today keeps its slot",
+    notStale.status,
+    403,
+  );
+
+  // -------------------------------------------------------------------------
+  group("An emptied license keeps its locality baseline");
+
+  // The regression this exists for: with the baseline held only on the device
+  // rows, freeing every slot — by admin, by self-release, or by the reclaim
+  // above — left `activateDevice` with nothing to compare against, so it treated
+  // the next caller as the license's first device and auto-approved it from
+  // anywhere on earth.
+  const l9 = await makeLicense("emptied-baseline", 1);
+  const l9Device = deviceId();
+  await post("/api/activate", activateBody(l9.key, l9Device), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+
+  const l9Row = await db.device.findFirst({
+    where: { licenseId: l9.id, deviceId: l9Device },
+  });
+  await deactivateDeviceRow(l9Row!.id, "verify@example.invalid");
+
+  const emptied = await db.device.count({
+    where: { licenseId: l9.id, status: "approved" },
+  });
+  checkEqual("no approved device remains", emptied, 0);
+
+  const farAway = await post("/api/activate", activateBody(l9.key, deviceId()), {
+    geo: PARIS,
+    ip: PARIS_IP,
+  });
+  checkEqual(
+    "a device in another country is still held for review",
+    farAway.status,
+    202,
+  );
+  checkEqual("rather than auto-approved", farAway.body.ApprovalState, "pending");
+
+  const l9Baseline = await db.license.findUnique({ where: { id: l9.id } });
+  checkEqual(
+    "because the baseline was kept on the license",
+    l9Baseline?.baselineCountry,
+    "GB",
+  );
+
+  const backHome = await post("/api/activate", activateBody(l9.key, deviceId()), {
+    geo: LONDON,
+    ip: LONDON_IP_B,
+  });
+  checkEqual(
+    "and a device back at the shop still activates against it",
+    backHome.status,
+    200,
+  );
 }
 
 async function teardown() {

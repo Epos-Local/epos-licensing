@@ -64,6 +64,21 @@ model License {
     validUntil DateTime
     issuedAt   DateTime      @default(now())
 
+    /// Locality baseline for the license as a whole, snapshotted from the first
+    /// device ever approved on it.
+    ///
+    /// It lives here, and not only on the baseline Device row, because the set of
+    /// approved devices can legitimately become empty — an admin deactivating
+    /// every till, or the stale-device reclaim below. When that happened, the geo
+    /// check had nothing to compare against and `activateDevice` treated the next
+    /// caller as the first device ever seen: auto-approved, from anywhere on
+    /// earth, silently re-basing the locality check the whole feature exists for.
+    /// Keeping the baseline on the license means an empty approved set is a
+    /// recoverable state rather than an open door.
+    baselineCountry String?
+    baselineRegion  String?
+    baselineIp      String?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -115,6 +130,14 @@ model Device {
     firstSeenAt DateTime  @default(now())
     lastCheckIn DateTime?
     approvedAt  DateTime?
+
+    /// When this till last released its own slot through POST /release.
+    ///
+    /// Only the client-initiated path writes it; an admin deactivating from the
+    /// panel deliberately leaves it alone, because the rate limit exists to stop
+    /// a shop cycling slots, not to stop support fixing something. Null means
+    /// "never self-released", which is the state of every device predating this.
+    lastSelfReleaseAt DateTime?
     createdAt   DateTime  @default(now())
     updatedAt   DateTime  @updatedAt
 

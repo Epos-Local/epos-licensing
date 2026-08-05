@@ -57,6 +57,32 @@ export interface ClientRequest {
 const STATE_UNKNOWN_KEY = "invalid_key";
 const STATE_DEVICE_LIMIT = "device_limit";
 
+/**
+ * How long an approved device may go without checking in before its slot can be
+ * reclaimed to let another till activate.
+ *
+ * 90 days is not arbitrary. The client's own offline grace is 14 days
+ * (`LicenseService.GraceWindow`), so anything near that would reclaim tills that
+ * are still legitimately running offline. More importantly the client's
+ * check-in is driven by a timer that only advances while the app is running, so
+ * `lastCheckIn` lags real usage by however long a shop leaves the till closed.
+ * The number has to sit far outside both, and reclaiming a slot a month too
+ * late costs nothing, while reclaiming one a day too early takes a working till
+ * off the air mid-service.
+ */
+const RECLAIM_AFTER_DAYS = 90;
+
+/**
+ * Minimum gap between two self-releases of the same device.
+ *
+ * A released device may immediately re-activate (the deliberate hardware-swap-
+ * back path below), so release → re-activate → release is the loop that would
+ * let a shop time-share more tills than it bought. The cooldown sits on the
+ * second release and makes that impractical without inconveniencing the real
+ * case, which happens once per hardware change.
+ */
+const SELF_RELEASE_COOLDOWN_HOURS = 24;
+
 // ---------------------------------------------------------------------------
 // POST /activate
 // ---------------------------------------------------------------------------
@@ -119,21 +145,26 @@ export async function activateDevice(
     return blockedResult("device rejected");
   }
 
-  // A deactivated row means an admin freed the slot. Coming back through
+  // A deactivated row means the slot was freed — by an admin, by the till
+  // itself through /release, or by the stale reclaim below. Coming back through
   // /activate is the hardware-swap-back case and is allowed to re-apply from
   // scratch: it still has to clear the device cap and the geo check below.
-  const approved = await db.device.findMany({
-    where: { licenseId: license.id, status: DeviceStatus.approved },
-    select: { geoCountry: true, geoRegion: true, lastKnownIp: true },
-  });
+  const baseline = await resolveLicenseBaseline(license);
+  let approved = await findApprovedCluster(license.id);
 
-  // First device ever seen for this key. Auto-approved, and becomes the geo
-  // baseline every later device is measured against.
-  if (approved.length === 0) {
+  // First device ever seen for this key: no approved devices AND no baseline on
+  // record, i.e. this license has never approved anything. Auto-approved, and
+  // its location becomes the baseline every later device is measured against.
+  //
+  // The baseline half of that condition is what makes an empty approved set
+  // safe. Without it, a license whose devices were all reclaimed or deactivated
+  // would treat the next caller — anywhere in the world — as its first device.
+  if (approved.length === 0 && baseline === null) {
     const device = await upsertDevice(license.id, request, {
       status: DeviceStatus.approved,
       isBaseline: true,
     });
+    await captureLicenseBaseline(license.id, request);
     await audit({
       type: AuditEventType.activation_approved,
       licenseId: license.id,
@@ -146,9 +177,17 @@ export async function activateDevice(
 
   // The cap is checked before the geo rule, and deliberately so: the license
   // was sold as N devices full stop, which makes this a deterministic outcome
-  // rather than a judgment call. Nothing is written to the device table and
-  // nothing reaches the pending queue, which is what keeps that queue a pure
-  // geo-review queue worth looking at.
+  // rather than a judgment call.
+  if (approved.length >= license.maxDevices) {
+    // Before refusing, give back any slot held by a till that stopped checking
+    // in months ago. Doing it here rather than on a schedule means it runs at
+    // the only moment it matters — someone is standing at a new till waiting —
+    // and never quietly demotes a shop that is merely offline and nobody is
+    // competing with. See RECLAIM_AFTER_DAYS.
+    const reclaimed = await reclaimStaleDevices(license.id);
+    if (reclaimed > 0) approved = await findApprovedCluster(license.id);
+  }
+
   if (approved.length >= license.maxDevices) {
     await audit({
       type: AuditEventType.activation_denied_device_limit,
@@ -169,7 +208,13 @@ export async function activateDevice(
     };
   }
 
-  const decision = geoMatchesCluster(request.geo, approved);
+  // The license baseline joins the cluster rather than replacing it: a shop that
+  // has legitimately moved has its newer approved devices to cluster against,
+  // and the baseline only decides the case where nothing else is left.
+  const decision = geoMatchesCluster(
+    request.geo,
+    baseline ? [...approved, baseline] : approved,
+  );
 
   if (decision.matches) {
     const device = await upsertDevice(license.id, request, {
@@ -303,6 +348,106 @@ export async function deactivateDevice(input: {
 
   await deactivateDeviceRow(device.id, input.actor);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// POST /release — the till freeing its own slot
+// ---------------------------------------------------------------------------
+
+export interface ReleaseResult {
+  status: number;
+  body: { Ok: boolean; Error: string | null; RetryAfterUtc: string | null };
+}
+
+/**
+ * Lets a till give up its own slot, so a shop replacing hardware doesn't have to
+ * wait on support for what is a routine change.
+ *
+ * Unlike `DELETE /device` this needs no admin session, and it does not need one:
+ * the caller can only name its own `deviceId`, which it proves it holds by
+ * having it. There is no reachable request that releases somebody else's device,
+ * so the authority question the admin endpoint answers with a login simply
+ * doesn't arise here.
+ *
+ * The hardware fingerprint is recorded but not enforced, consistent with the
+ * rest of this service treating it as an audit trail rather than the membership
+ * signal — a shop that has just replaced a motherboard is exactly who this is
+ * for, and they would fail a fingerprint check.
+ *
+ * Idempotent: releasing an already-released device succeeds without touching
+ * anything, so a client retry after a dropped response is not an error and does
+ * not spend the cooldown.
+ */
+export async function releaseOwnDevice(
+  request: ClientRequest,
+): Promise<ReleaseResult> {
+  const license = await findLicense(request.licenseKey);
+  if (!license) return releaseError(404, "unknown license key");
+
+  const device = await db.device.findUnique({
+    where: {
+      licenseId_deviceId: { licenseId: license.id, deviceId: request.deviceId },
+    },
+  });
+  if (!device) {
+    return releaseError(404, "device not registered on this license");
+  }
+
+  if (device.status === DeviceStatus.deactivated) {
+    return { status: 200, body: { Ok: true, Error: null, RetryAfterUtc: null } };
+  }
+
+  if (device.status !== DeviceStatus.approved) {
+    return releaseError(
+      409,
+      `a ${device.status} device holds no slot to release`,
+    );
+  }
+
+  const cooldownEnds = device.lastSelfReleaseAt
+    ? new Date(
+        device.lastSelfReleaseAt.getTime() +
+          SELF_RELEASE_COOLDOWN_HOURS * 3_600_000,
+      )
+    : null;
+
+  if (cooldownEnds && cooldownEnds > new Date()) {
+    return {
+      status: 429,
+      body: {
+        Ok: false,
+        Error: `this device was already released in the last ${SELF_RELEASE_COOLDOWN_HOURS} hours`,
+        RetryAfterUtc: cooldownEnds.toISOString(),
+      },
+    };
+  }
+
+  await db.device.update({
+    where: { id: device.id },
+    data: {
+      status: DeviceStatus.deactivated,
+      isBaseline: false,
+      lastSelfReleaseAt: new Date(),
+      lastKnownIp: request.geo.ip,
+      geoCountry: request.geo.country,
+      geoRegion: request.geo.region,
+      geoCity: request.geo.city,
+    },
+  });
+
+  await audit({
+    type: AuditEventType.device_deactivated,
+    licenseId: license.id,
+    deviceId: device.id,
+    summary: `Device ${short(device.deviceId)} released its own slot from the till`,
+    request,
+  });
+
+  return { status: 200, body: { Ok: true, Error: null, RetryAfterUtc: null } };
+}
+
+function releaseError(status: number, error: string): ReleaseResult {
+  return { status, body: { Ok: false, Error: error, RetryAfterUtc: null } };
 }
 
 /** The admin panel's own entry point, which already holds the row id. */
@@ -498,6 +643,131 @@ function findLicense(rawKey: string) {
   const key = normalizeLicenseKey(rawKey);
   if (!key) return Promise.resolve(null);
   return db.license.findUnique({ where: { key } });
+}
+
+/** One entry in the set a candidate device's location is compared against. */
+type ClusterEntry = Pick<Device, "geoCountry" | "geoRegion" | "lastKnownIp">;
+
+function findApprovedCluster(licenseId: string): Promise<ClusterEntry[]> {
+  return db.device.findMany({
+    where: { licenseId, status: DeviceStatus.approved },
+    select: { geoCountry: true, geoRegion: true, lastKnownIp: true },
+  });
+}
+
+/**
+ * The license's own locality baseline, backfilling it from the device rows the
+ * first time a license issued before this column existed is touched.
+ *
+ * Returns null only for a license that has genuinely never approved anything —
+ * which is the one case `activateDevice` is allowed to treat as "first device
+ * ever" and auto-approve.
+ */
+async function resolveLicenseBaseline(
+  license: License,
+): Promise<ClusterEntry | null> {
+  if (license.baselineCountry ?? license.baselineIp) {
+    return {
+      geoCountry: license.baselineCountry,
+      geoRegion: license.baselineRegion,
+      lastKnownIp: license.baselineIp,
+    };
+  }
+
+  // Prefer the row flagged as the baseline; fall back to the oldest device that
+  // was ever approved, including one since deactivated — a license that has
+  // approved a device before must never be mistaken for a fresh one.
+  const source =
+    (await db.device.findFirst({
+      where: { licenseId: license.id, isBaseline: true },
+      select: { geoCountry: true, geoRegion: true, lastKnownIp: true },
+    })) ??
+    (await db.device.findFirst({
+      where: { licenseId: license.id, approvedAt: { not: null } },
+      orderBy: { approvedAt: "asc" },
+      select: { geoCountry: true, geoRegion: true, lastKnownIp: true },
+    }));
+
+  if (!source) return null;
+
+  await db.license.update({
+    where: { id: license.id },
+    data: {
+      baselineCountry: source.geoCountry,
+      baselineRegion: source.geoRegion,
+      baselineIp: source.lastKnownIp,
+    },
+  });
+
+  return source;
+}
+
+/** Snapshots the first-ever approved device's location onto the license. */
+async function captureLicenseBaseline(
+  licenseId: string,
+  request: ClientRequest,
+): Promise<void> {
+  await db.license.update({
+    where: { id: licenseId },
+    data: {
+      baselineCountry: request.geo.country,
+      baselineRegion: request.geo.region,
+      baselineIp: request.geo.ip,
+    },
+  });
+}
+
+/**
+ * Frees the slots of approved devices that have not checked in for
+ * {@link RECLAIM_AFTER_DAYS}, so a routine hardware swap doesn't need a support
+ * ticket. Returns how many were reclaimed.
+ *
+ * A device that has never checked in at all is measured from `firstSeenAt`
+ * instead, which covers a row created by an admin-side flow that never saw the
+ * hardware again.
+ *
+ * Reclaiming every approved device is deliberately allowed. That would once
+ * have reset the license's locality check; it no longer can, because the
+ * baseline lives on the License row. Anything that changes here has to keep
+ * that invariant — see the `baselineCountry` comment in schema.prisma.
+ */
+async function reclaimStaleDevices(licenseId: string): Promise<number> {
+  const cutoff = new Date(Date.now() - RECLAIM_AFTER_DAYS * 86_400_000);
+
+  const stale = await db.device.findMany({
+    where: {
+      licenseId,
+      status: DeviceStatus.approved,
+      OR: [
+        { lastCheckIn: { lt: cutoff } },
+        { lastCheckIn: null, firstSeenAt: { lt: cutoff } },
+      ],
+    },
+    select: { id: true, deviceId: true, lastCheckIn: true },
+  });
+
+  for (const device of stale) {
+    await db.device.update({
+      where: { id: device.id },
+      data: { status: DeviceStatus.deactivated, isBaseline: false },
+    });
+
+    await audit({
+      type: AuditEventType.device_deactivated,
+      licenseId,
+      deviceId: device.id,
+      actor: "system",
+      summary:
+        `Device ${short(device.deviceId)} auto-reclaimed after ${RECLAIM_AFTER_DAYS} days without a check-in, ` +
+        `freeing a slot (last seen ${device.lastCheckIn?.toISOString() ?? "never"})`,
+      meta: {
+        reclaimAfterDays: RECLAIM_AFTER_DAYS,
+        lastCheckIn: device.lastCheckIn?.toISOString() ?? null,
+      },
+    });
+  }
+
+  return stale.length;
 }
 
 function approvedResult(license: License, device: Device): LicenseServerResult {

@@ -40,6 +40,13 @@ export const deviceDeleteRequestSchema = z.object({
   deviceid: nonEmpty,
 });
 
+/**
+ * Same shape as a check-in, and deliberately so: a till releasing its own slot
+ * is proving it holds that device's identity, which is exactly what a check-in
+ * body carries.
+ */
+export const releaseRequestSchema = checkInRequestSchema;
+
 export async function readJsonBody(request: Request): Promise<unknown> {
   try {
     return normalizeKeys(await request.json());
