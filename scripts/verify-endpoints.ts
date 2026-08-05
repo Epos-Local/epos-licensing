@@ -663,11 +663,31 @@ async function run() {
     200,
   );
 
+  // A licence of its own, because the cooldown can only be reached by a device
+  // that holds a slot again: on l6 the replacement machine has already taken the
+  // only one, so reactivating there is refused by the cap and the next release
+  // would harmlessly hit the idempotent branch instead of the limit.
+  const l6b = await makeLicense("release-cooldown", 1);
+  const l6bDevice = deviceId();
+  await post("/api/activate", activateBody(l6b.key, l6bDevice), {
+    geo: LONDON,
+    ip: LONDON_IP_A,
+  });
+  await postRelease(l6b.key, l6bDevice);
+
+  const l6bRow = await db.device.findFirst({
+    where: { licenseId: l6b.id, deviceId: l6bDevice },
+  });
   // Put it back the way an admin would, so the cooldown is what refuses the
   // next release rather than the device simply having no slot to give up.
-  await reactivateDevice(releasedRow!.id, "verify@example.invalid");
+  const putBack = await reactivateDevice(l6bRow!.id, "verify@example.invalid");
+  check(
+    "an admin can hand the slot back to a till that released it",
+    putBack.ok,
+    putBack.error,
+  );
 
-  const tooSoon = await postRelease(l6.key, l6Device);
+  const tooSoon = await postRelease(l6b.key, l6bDevice);
   checkEqual("a second release within 24h is refused", tooSoon.status, 429);
   checkEqual("with Ok false", tooSoon.body.Ok, false);
   check(
@@ -678,7 +698,7 @@ async function run() {
   );
 
   const stillHeld = await db.device.findFirst({
-    where: { licenseId: l6.id, deviceId: l6Device },
+    where: { licenseId: l6b.id, deviceId: l6bDevice },
   });
   checkEqual("the slot is still held", stillHeld?.status, "approved");
 
