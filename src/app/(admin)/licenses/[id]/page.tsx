@@ -160,6 +160,19 @@ export default async function LicenseDetailPage({
                           <span className="vbg-meta">location baseline</span>
                         </>
                       )}
+                      {/* Two machines sharing one device id, which is what a
+                          copied database leaves behind. Reported, never acted
+                          on: forcing a re-activation on a false positive would
+                          cost the shop a slot it paid for. */}
+                      {device.fingerprintAlternations > 1 && (
+                        <>
+                          <br />
+                          <strong>
+                            ⚠ hardware alternating ×{device.fingerprintAlternations} — likely two
+                            machines sharing this device id
+                          </strong>
+                        </>
+                      )}
                     </td>
                     <td>
                       <span

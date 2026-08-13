@@ -912,6 +912,19 @@ async function touchDevice(
     where: { id: deviceRowId },
   });
 
+  const fingerprintChanged =
+    !!before.hardwareFingerprint &&
+    before.hardwareFingerprint !== request.hardwareFingerprint;
+
+  // Flipping BACK to a fingerprint this device already reported is the tell. One
+  // machine replaced or reimaged moves forward and stays there; two machines
+  // sharing a device id take turns, so this counter is the only thing that
+  // separates the two cases.
+  const flippedBack =
+    fingerprintChanged &&
+    !!before.previousFingerprint &&
+    before.previousFingerprint === request.hardwareFingerprint;
+
   const device = await db.device.update({
     where: { id: deviceRowId },
     data: {
@@ -920,6 +933,12 @@ async function touchDevice(
       geoCountry: request.geo.country,
       geoRegion: request.geo.region,
       geoCity: request.geo.city,
+      ...(fingerprintChanged
+        ? { previousFingerprint: before.hardwareFingerprint }
+        : {}),
+      ...(flippedBack
+        ? { fingerprintAlternations: { increment: 1 } }
+        : {}),
       ...(options.checkIn ? { lastCheckIn: new Date() } : {}),
     },
   });
@@ -928,19 +947,19 @@ async function touchDevice(
   // rather than of a hardware upgrade. It does not change the verdict, because
   // the fingerprint is an audit trail and not the shop-membership signal, but
   // it is worth a line in the log for the support conversation that follows.
-  if (
-    before.hardwareFingerprint &&
-    before.hardwareFingerprint !== request.hardwareFingerprint
-  ) {
+  if (fingerprintChanged) {
     await audit({
       type: AuditEventType.checkin,
       licenseId: device.licenseId,
       deviceId: device.id,
-      summary: `Device ${short(device.deviceId)} reported different hardware than previously recorded`,
+      summary: flippedBack
+        ? `Device ${short(device.deviceId)} is alternating between two sets of hardware (${device.fingerprintAlternations}x) - it looks like two machines sharing one device id`
+        : `Device ${short(device.deviceId)} reported different hardware than previously recorded`,
       request,
       meta: {
         previousFingerprint: before.hardwareFingerprint,
         currentFingerprint: request.hardwareFingerprint,
+        alternations: device.fingerprintAlternations,
       },
     });
   }

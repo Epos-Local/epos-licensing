@@ -150,6 +150,24 @@ model Device {
     lastCheckIn DateTime?
     approvedAt  DateTime?
 
+    /// The fingerprint recorded before the current one, and how many times the
+    /// device has flipped BACK to a fingerprint it had previously reported.
+    ///
+    /// These separate the two reasons a device id can report different hardware.
+    /// A reimage or a motherboard swap changes the fingerprint once and then
+    /// settles: `previousFingerprint` moves, `fingerprintAlternations` stays at
+    /// zero. Two machines sharing one device id - the shape a copied database
+    /// leaves behind - flip back and forth as each checks in, so the counter
+    /// climbs and keeps climbing.
+    ///
+    /// Recorded and surfaced, never acted on. A false positive would force a
+    /// legitimate till to re-activate and consume a slot the shop paid for, so
+    /// this is evidence for a support conversation rather than a trigger. It has
+    /// a real blind spot too: the client hashes "unknown" when WMI is locked
+    /// down, so two such machines produce identical fingerprints and never flip.
+    previousFingerprint     String?
+    fingerprintAlternations Int     @default(0)
+
     /// When this till last released its own slot through POST /release.
     ///
     /// Only the client-initiated path writes it; an admin deactivating from the
