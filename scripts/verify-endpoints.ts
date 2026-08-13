@@ -657,10 +657,18 @@ async function run() {
     activateBody(l6.key, deviceId()),
     { geo: LONDON, ip: LONDON_IP_A },
   );
+  // Held for review now rather than refused, but the slot is what matters: the
+  // newcomer gets no blob and the first device keeps the only approved place.
   checkEqual(
-    "a second device is refused while the first holds the only slot",
+    "a second device is held, not let in, while the first holds the only slot",
     cappedBeforeRelease.status,
-    403,
+    202,
+  );
+  checkEqual("and gets no blob", cappedBeforeRelease.body.License, null);
+  checkEqual(
+    "the first device still holds the slot",
+    await db.device.count({ where: { licenseId: l6.id, status: "approved" } }),
+    1,
   );
 
   const released = await postRelease(l6.key, l6Device);
@@ -805,11 +813,22 @@ async function run() {
     geo: LONDON,
     ip: LONDON_IP_B,
   });
+  // The point of this case is the RECLAIM, not the status code: a device that
+  // checked in today must not be swept aside for a newcomer. So the assertion
+  // that carries the meaning is that the original is still the approved one.
   checkEqual(
     "a device that checked in today keeps its slot",
-    notStale.status,
-    403,
+    await db.device.count({
+      where: { licenseId: l8.id, deviceId: l8Device, status: "approved" },
+    }),
+    1,
   );
+  checkEqual(
+    "and the newcomer waits for a decision instead of taking it",
+    notStale.status,
+    202,
+  );
+  checkEqual("with no blob of its own", notStale.body.License, null);
 
   // -------------------------------------------------------------------------
   group("An emptied license keeps its locality baseline");
