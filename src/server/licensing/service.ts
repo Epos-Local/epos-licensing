@@ -55,15 +55,17 @@ export interface ClientRequest {
 }
 
 /**
- * `ApprovalState` values the client's `ApplyServerResponseAsync` does not
- * recognise fall through its switch without touching cached state. That is the
- * right outcome for both cases below, and the reason neither reuses "blocked":
- * a mistyped key must not leave a till permanently displaying "Blocked", and a
- * device-limit rejection is a slot problem the shop can resolve, not a
- * revocation.
+ * An `ApprovalState` the client's `ApplyServerResponseAsync` does not recognise
+ * falls through its switch without touching cached state, which is the right
+ * outcome here and the reason this does not reuse "blocked": a mistyped key must
+ * not leave a till permanently displaying "Blocked".
+ *
+ * There was a "device_limit" state alongside this one until over-limit devices
+ * started being held for review instead of refused. They now answer "pending",
+ * which the client DOES recognise — so the till stops taking payment and says it
+ * is waiting, rather than sitting on an unrecognised state that changed nothing.
  */
 const STATE_UNKNOWN_KEY = "invalid_key";
-const STATE_DEVICE_LIMIT = "device_limit";
 
 /**
  * How long an approved device may go without checking in before its slot can be
@@ -196,20 +198,38 @@ export async function activateDevice(
     if (reclaimed > 0) approved = await findApprovedCluster(license.id);
   }
 
+  // Over the limit: HELD FOR REVIEW, not refused. The till gets no licence blob
+  // and cannot take payment until somebody approves it, so the cap still binds —
+  // but a shop that has genuinely replaced a machine, or bought a third till, now
+  // reaches a human instead of a dead end. Refusing outright left them with a
+  // screen that said no and no way to ask.
+  //
+  // This is not a way around the limit. A pending row does not count towards
+  // maxDevices, and approveDevice refuses while the licence is full and tells the
+  // admin to free a slot first — so the only route through is deactivating a till
+  // that is genuinely gone, which is exactly the decision a person should make.
   if (approved.length >= license.maxDevices) {
+    const device = await upsertDevice(license.id, request, {
+      status: DeviceStatus.pending,
+      isBaseline: false,
+    });
     await audit({
       type: AuditEventType.activation_denied_device_limit,
       licenseId: license.id,
-      summary: `Device ${short(request.deviceId)} refused: license already has ${approved.length} of ${license.maxDevices} devices approved`,
+      deviceId: device.id,
+      summary: `Device ${short(request.deviceId)} held for review: license already has ${approved.length} of ${license.maxDevices} devices approved`,
       request,
       meta: { maxDevices: license.maxDevices, approvedCount: approved.length },
     });
+    // The counts ride along on the 202 so the till can say WHY it is waiting.
+    // "Pending" on its own reads as a location query, which is the other reason
+    // a device lands in that queue and a different conversation with support.
     return {
-      status: 403,
+      status: 202,
       body: {
         License: null,
-        ApprovalState: STATE_DEVICE_LIMIT,
-        Error: "device limit reached",
+        ApprovalState: "pending",
+        Error: null,
         MaxDevices: license.maxDevices,
         ApprovedCount: approved.length,
       },

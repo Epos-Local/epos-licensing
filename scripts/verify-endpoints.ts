@@ -428,14 +428,11 @@ async function run() {
     ip: LONDON_IP_A,
   });
 
-  checkEqual("returns 403", capped.status, 403);
-  checkEqual(
-    "the error names the limit",
-    capped.body.Error,
-    "device limit reached",
-  );
-  checkEqual("and reports it", capped.body.MaxDevices, 2);
+  checkEqual("returns 202, held rather than refused", capped.status, 202);
+  checkEqual("approval state is pending", capped.body.ApprovalState, "pending");
+  checkEqual("it reports the limit", capped.body.MaxDevices, 2);
   checkEqual("along with the count", capped.body.ApprovedCount, 2);
+  // The cap still binds: no blob means the till cannot take payment while it waits.
   checkEqual("no blob is issued", capped.body.License, null);
 
   check(
@@ -446,12 +443,14 @@ async function run() {
   const overRow = await db.device.findFirst({
     where: { licenseId: l1.id, deviceId: overA },
   });
-  checkEqual("no device row is written at all", overRow, null);
+  checkEqual("it is on file for a human to decide on", overRow?.status, "pending");
 
-  const l1Pending = await db.device.count({
-    where: { licenseId: l1.id, status: "pending" },
+  // A pending row must NOT count towards the cap, or queuing one would be a way
+  // around the limit rather than a request to lift it.
+  const l1Approved = await db.device.count({
+    where: { licenseId: l1.id, status: "approved" },
   });
-  checkEqual("and nothing reaches the pending queue", l1Pending, 0);
+  checkEqual("and does not count against the license", l1Approved, 2);
 
   const overB = deviceId();
   const cappedFar = await post("/api/activate", activateBody(l1.key, overB), {
@@ -459,9 +458,9 @@ async function run() {
     ip: PARIS_IP,
   });
   checkEqual(
-    "the cap outranks the geo check rather than sitting behind it",
+    "a far device over the limit is queued too, not refused",
     cappedFar.status,
-    403,
+    202,
   );
 
   // -------------------------------------------------------------------------

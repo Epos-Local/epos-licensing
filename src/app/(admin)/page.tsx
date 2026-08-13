@@ -59,9 +59,11 @@ export default async function ApprovalsPage({
         </h1>
 
         <p className="vbg-lede vbg-span-7">
-          A device lands here when its license still has a free slot but the
-          request came from outside the locations that license has already been
-          approved at. Approving says this is another till at the same business.
+          A device lands here when it cannot be approved on its own: either the
+          request came from outside the locations its license has already been
+          approved at, or that license has no free slot left. Approving says this
+          is another till at the same business. Until then the till is blocked and
+          cannot take payment.
         </p>
 
         <Notice notice={notice} tone={tone} />
@@ -70,10 +72,11 @@ export default async function ApprovalsPage({
       {pending.length === 0 ? (
         <section className="vbg-section">
           <p className="vbg-reading">
-            Devices that match a license&rsquo;s established location are
-            approved automatically and never appear here, and a device beyond
-            its license&rsquo;s limit is refused outright rather than queued. An
-            empty queue is the normal state.
+            Devices that match a license&rsquo;s established location and have a
+            free slot are approved automatically and never appear here, so an
+            empty queue is the normal state. A device over its license&rsquo;s
+            limit waits here too — approving it needs a slot freed first, on the
+            license&rsquo;s own page.
           </p>
           <p className="vbg-reading">
             <Link href="/audit">The audit log</Link> records what the server
