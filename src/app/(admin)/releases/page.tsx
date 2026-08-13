@@ -115,9 +115,12 @@ export default async function ReleasesPage({
               maxLength={64}
             />
             <p className="vbg-lede">
-              Run <code>Get-FileHash EPos365-Setup.exe</code> and paste the
-              hash. Without it a till will open the link instead of installing
-              on its own — it will not execute a download it cannot verify.
+              Copy the link and the hash from the same GitHub release — they
+              describe each other, and every build produces a different hash.
+              Use the versioned link (<code>…/releases/v1.4.0/…</code>), not{" "}
+              <code>…/latest/…</code>, which the next release overwrites.
+              Without a hash a till will open the link instead of installing on
+              its own — it will not execute a download it cannot verify.
             </p>
           </div>
 

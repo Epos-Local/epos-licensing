@@ -43,6 +43,24 @@ const releaseSchema = z.object({
     .or(z.literal("").transform(() => undefined)),
   notes: z.string().trim().max(500).optional(),
   mandatory: z.boolean(),
+}).superRefine((data, ctx) => {
+  // A hash names one exact sequence of bytes; a mutable path names whatever is there today. The
+  // two together are a contradiction that only shows up later, on a till, as a failed install —
+  // the moment the next release overwrites `latest/`, this release's hash describes a file that no
+  // longer exists and every till still on this announcement refuses the download.
+  //
+  // Same reasoning as never pinning a digest to a Docker `:latest` tag. The versioned path this
+  // workflow also writes is immutable, so it is the only correct target for a verified install.
+  if (data.sha256 && /\/latest\//i.test(data.downloadUrl)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["downloadUrl"],
+      message:
+        "Point a verified release at its versioned path (…/releases/v1.4.0/EPos365-Setup.exe), not …/latest/. " +
+        "The next release overwrites latest/, which would break this release's hash and stop tills installing. " +
+        "Publish without a hash if you really want latest/ — tills will open the link in a browser instead.",
+    });
+  }
 });
 
 export async function createReleaseAction(formData: FormData): Promise<void> {
