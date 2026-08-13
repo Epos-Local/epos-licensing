@@ -132,6 +132,15 @@ export function serializeResponseBody(
     parts.push(`"UpdateSignature":${JSON.stringify(update.UpdateSignature)}`);
   }
 
+  // Additive, exactly like the update fields above: a client that predates this
+  // ignores them and goes on using the number typed in at Settings > Database.
+  if (body.TerminalNumber !== undefined) {
+    parts.push(`"TerminalNumber":${body.TerminalNumber}`);
+    parts.push(
+      `"TerminalNumberSignature":${JSON.stringify(body.TerminalNumberSignature)}`,
+    );
+  }
+
   if (body.MaxDevices !== undefined)
     parts.push(`"MaxDevices":${body.MaxDevices}`);
   if (body.ApprovedCount !== undefined) {

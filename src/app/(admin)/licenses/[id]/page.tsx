@@ -127,6 +127,7 @@ export default async function LicenseDetailPage({
               </caption>
               <thead>
                 <tr>
+                  <th scope="col">Till</th>
                   <th scope="col">Device</th>
                   <th scope="col">Status</th>
                   <th scope="col">Location</th>
@@ -137,6 +138,18 @@ export default async function LicenseDetailPage({
               <tbody>
                 {license.devices.map((device) => (
                   <tr key={device.id}>
+                    {/* The document-number block this till counts inside. Shown
+                        first because it is the column support actually needs: a
+                        shop asking "which till issued invoice 1000042?" is
+                        asking about this number, and nothing else here answers
+                        it. Unallocated until a device is approved. */}
+                    <td>
+                      {device.terminalNumber === null ? (
+                        <span className="vbg-meta">not assigned</span>
+                      ) : (
+                        <strong>Till {device.terminalNumber}</strong>
+                      )}
+                    </td>
                     <td>
                       <span className="vbg-mono">
                         {shortId(device.deviceId, 16)}

@@ -30,11 +30,12 @@ import {
 import {
   getPublicKeyPkcs1Base64,
   verifySignedBlob,
+  verifyTerminalNumber,
   verifyUpdate,
   type SerializedLicenseBlob,
 } from "~/server/licensing/signing";
 
-import { check, checkEqual, cleanUp, group, summarize } from "./harness";
+import { check, checkEqual, cleanUp, group, skip, summarize } from "./harness";
 
 const BASE = process.env.VERIFY_BASE_URL ?? "http://localhost:3000";
 const RUN = `verify-${Date.now()}`;
@@ -266,6 +267,49 @@ async function run() {
   });
   checkEqual("stored as approved", rowB?.status, "approved");
   check("but is not the baseline", rowB?.isBaseline === false);
+
+  // The document-number block. This is the assertion the whole feature rests on
+  // and the only place in this script that can make it: everywhere else the
+  // device under test is the first on its license, so it would get 1 whether the
+  // allocator counted or simply returned a constant.
+  const firstTillRow = await db.device.findFirst({
+    where: { licenseId: l1.id, deviceId: deviceA },
+  });
+  checkEqual("the first till was given block 1", firstTillRow?.terminalNumber, 1);
+  checkEqual("and the second a block of its own", rowB?.terminalNumber, 2);
+
+  // Signed over (deviceId, number), so the till can trust it and cannot be handed
+  // the other till's block by anything sitting in between.
+  const secondAssignment = JSON.parse(second.raw) as {
+    TerminalNumber?: number;
+    TerminalNumberSignature?: string;
+  };
+  checkEqual(
+    "which is what the response tells that till",
+    secondAssignment.TerminalNumber,
+    2,
+  );
+  check(
+    "signed against its own device id",
+    verifyTerminalNumber(deviceB, 2, secondAssignment.TerminalNumberSignature!, publicKey),
+  );
+  check(
+    "and not verifiable for the other till on the license",
+    !verifyTerminalNumber(deviceA, 2, secondAssignment.TerminalNumberSignature!, publicKey),
+  );
+
+  // Re-activating must not renumber a till. Its counter has already issued
+  // documents inside the old block, and moving it would either strand those
+  // numbers or walk into a block another till owns.
+  const reactivated = await post("/api/activate", activateBody(l1.key, deviceB), {
+    geo: LONDON,
+    ip: LONDON_IP_B,
+  });
+  checkEqual(
+    "re-activating keeps the block it already had",
+    (JSON.parse(reactivated.raw) as { TerminalNumber?: number }).TerminalNumber,
+    2,
+  );
 
   // The /24 clause covers a shop whose region reading is missing entirely.
   const lSubnet = await makeLicense("same-subnet");
@@ -827,15 +871,37 @@ async function run() {
   const l10 = await makeLicense("updates");
   const l10Device = deviceId();
 
+  // Releases are global rather than per-license, so the two "no announcement"
+  // checks below are the only ones in this script whose precondition it does not
+  // own: any release already published — a real one, on the real database — is
+  // announced on every response and there is nothing this run may do about it.
+  //
+  // Skipped rather than forced. Unpublishing someone else's release to make a
+  // test pass would, if this script died between the unpublish and the restore,
+  // leave every till in the field never told about an update again. That is a
+  // far worse outcome than an unverified assertion, and it is exactly the class
+  // of damage a verification suite pointed at production must not be able to do.
+  const alreadyPublished = await db.appRelease.findFirst({
+    where: { isPublished: true },
+    select: { version: true },
+  });
+  const cannotTestAbsence = alreadyPublished
+    ? `${alreadyPublished.version} is already published on this database, so no response can be free of an announcement. Run against a database with no published release to cover this.`
+    : null;
+
   const noRelease = await post("/api/activate", activateBody(l10.key, l10Device), {
     geo: LONDON,
     ip: LONDON_IP_A,
   });
-  check(
-    "nothing published means the fields are absent, not empty",
-    !("UpdateVersion" in (JSON.parse(noRelease.raw) as object)),
-    noRelease.raw,
-  );
+  if (cannotTestAbsence) {
+    skip("nothing published means the fields are absent, not empty", cannotTestAbsence);
+  } else {
+    check(
+      "nothing published means the fields are absent, not empty",
+      !("UpdateVersion" in (JSON.parse(noRelease.raw) as object)),
+      noRelease.raw,
+    );
+  }
 
   const release = await db.appRelease.create({
     data: {
@@ -928,11 +994,22 @@ async function run() {
     geo: LONDON,
     ip: LONDON_IP_A,
   });
-  check(
-    "withdrawing it takes the announcement away again",
-    !("UpdateVersion" in (JSON.parse(withdrawn.raw) as object)),
-    withdrawn.raw,
-  );
+  if (cannotTestAbsence) {
+    // Still worth asserting the half that is testable: the withdrawn fixture has
+    // to stop being announced, even though something else still is.
+    checkEqual(
+      "withdrawing it stops THIS release being announced",
+      (JSON.parse(withdrawn.raw) as { UpdateVersion?: string }).UpdateVersion ===
+        "0.4.0",
+      false,
+    );
+  } else {
+    check(
+      "withdrawing it takes the announcement away again",
+      !("UpdateVersion" in (JSON.parse(withdrawn.raw) as object)),
+      withdrawn.raw,
+    );
+  }
 }
 
 async function teardown() {

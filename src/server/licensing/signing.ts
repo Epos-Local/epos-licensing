@@ -271,6 +271,50 @@ export function signServerTime(now: Date = new Date()): {
 }
 
 /**
+ * The bytes a terminal-number assignment is signed over: the device it is for,
+ * then the number, joined by a character that cannot appear in either.
+ *
+ * The device id has to be inside the signature. Without it the assignment is
+ * just a signed integer, and a signed integer lifted off one till's response and
+ * replayed to another puts two tills in the same document-number block — the
+ * exact failure this whole mechanism exists to prevent, achieved by replaying a
+ * genuine message rather than forging one.
+ */
+export function canonicalTerminalNumberPayload(
+  deviceId: string,
+  terminalNumber: number,
+): string {
+  // Same separator as canonicalUpdatePayload, for the same reason: neither a
+  // GUID nor a decimal integer can contain it, so the split is unambiguous.
+  return [deviceId, String(terminalNumber)].join("|");
+}
+
+/**
+ * Signs "this till is number N".
+ *
+ * Separately signed rather than added to the licence blob, for the same reason
+ * as {@link signServerTime}: `canonicalPayloadJson`'s byte layout is load-bearing
+ * for its own signature, so a new field there would invalidate every licence
+ * already issued and force a lockstep client rollout. Additive means old clients
+ * ignore this and keep using their manually-set number, which is exactly the
+ * behaviour they have today.
+ *
+ * Unsigned, this would be worth intercepting: set every till on a licence to the
+ * same number and their document numbers collide silently, which is both a
+ * records problem and one nobody at the shop can see happening.
+ */
+export function signTerminalNumber(
+  deviceId: string,
+  terminalNumber: number,
+): string {
+  return cryptoSign(
+    "sha256",
+    Buffer.from(canonicalTerminalNumberPayload(deviceId, terminalNumber), "utf8"),
+    { key: getPrivateKey(), padding: constants.RSA_PKCS1_PADDING },
+  ).toString("base64");
+}
+
+/**
  * The bytes an update announcement is signed over: the fields joined with a
  * character that cannot appear in any of them.
  *
@@ -325,6 +369,38 @@ export function signUpdate(update: {
 }
 
 /** {@link signUpdate}'s counterpart, so the suite can prove a round trip. */
+/**
+ * The verifying half of {@link signTerminalNumber}, mirroring the client's
+ * `LicenseBlobSigning.VerifyTerminalNumber`. Used by the endpoint verification
+ * script to prove a till is handed a block it can actually trust — and that the
+ * same assignment does NOT verify for the other till on the license.
+ */
+export function verifyTerminalNumber(
+  deviceId: string,
+  terminalNumber: number,
+  signatureBase64: string,
+  publicKeyPkcs1Base64?: string,
+): boolean {
+  try {
+    const key = publicKeyPkcs1Base64
+      ? createPublicKey({
+          key: Buffer.from(publicKeyPkcs1Base64, "base64"),
+          format: "der",
+          type: "pkcs1",
+        })
+      : createPublicKey(getPrivateKey());
+
+    return cryptoVerify(
+      "sha256",
+      Buffer.from(canonicalTerminalNumberPayload(deviceId, terminalNumber), "utf8"),
+      { key, padding: constants.RSA_PKCS1_PADDING },
+      Buffer.from(signatureBase64, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function verifyUpdate(
   update: {
     version: string;

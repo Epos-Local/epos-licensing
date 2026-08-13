@@ -11,6 +11,7 @@ import { formatGeo, geoMatchesCluster, type RequestGeo } from "./geo";
 import { normalizeLicenseKey } from "./license-key";
 import {
   signBlob,
+  signTerminalNumber,
   type ApprovalState,
   type SignedLicenseBlob,
 } from "./signing";
@@ -31,6 +32,13 @@ export interface LicenseServerResponseBody {
   /** Only present on a device-limit rejection, per the design doc's 403 shape. */
   MaxDevices?: number;
   ApprovedCount?: number;
+  /**
+   * Which document-number block this till owns, and a signature over
+   * (deviceId, number) proving this server said so. Present only on an approved
+   * response, because only an approved device holds a block.
+   */
+  TerminalNumber?: number;
+  TerminalNumberSignature?: string;
 }
 
 export interface LicenseServerResult {
@@ -132,7 +140,7 @@ export async function activateDevice(
       summary: `Device ${short(request.deviceId)} re-activated (already approved)`,
       request,
     });
-    return approvedResult(license, device);
+    return await approvedResult(license, device);
   }
 
   if (existing?.status === DeviceStatus.pending) {
@@ -172,7 +180,7 @@ export async function activateDevice(
       summary: `Device ${short(request.deviceId)} auto-approved as the first device on this license and is now the geo baseline`,
       request,
     });
-    return approvedResult(license, device);
+    return await approvedResult(license, device);
   }
 
   // The cap is checked before the geo rule, and deliberately so: the license
@@ -229,7 +237,7 @@ export async function activateDevice(
       request,
       meta: { reason: decision.reason },
     });
-    return approvedResult(license, device);
+    return await approvedResult(license, device);
   }
 
   const device = await upsertDevice(license.id, request, {
@@ -314,7 +322,7 @@ export async function checkInDevice(
 
   if (device.status === DeviceStatus.pending) return pendingResult();
 
-  return approvedResult(license, device);
+  return await approvedResult(license, device);
 }
 
 // ---------------------------------------------------------------------------
@@ -770,15 +778,78 @@ async function reclaimStaleDevices(licenseId: string): Promise<number> {
   return stale.length;
 }
 
-function approvedResult(license: License, device: Device): LicenseServerResult {
+// Async because it allocates. Putting the allocation here rather than at each of
+// the four call sites is deliberate: every path that tells a till "you are
+// approved" is a path that must also tell it which number it is, and a new one
+// added later gets that for free.
+async function approvedResult(
+  license: License,
+  approvedDevice: Device,
+): Promise<LicenseServerResult> {
+  const device = await allocateTerminalNumber(approvedDevice);
   return {
     status: 200,
     body: {
       License: buildSignedBlob(license, device, "approved"),
       ApprovalState: "approved",
       Error: null,
+      // Emitted on every approved response, not just the one that allocated it.
+      // A till that reinstalls, or loses the setting, or simply checks in daily
+      // is told its own number again each time, so the client never has to
+      // treat this as a once-only message it must not miss.
+      ...(device.terminalNumber === null
+        ? {}
+        : {
+            TerminalNumber: device.terminalNumber,
+            TerminalNumberSignature: signTerminalNumber(
+              device.deviceId,
+              device.terminalNumber,
+            ),
+          }),
     },
   };
+}
+
+/**
+ * Gives a device its document-number block, if it does not already have one.
+ *
+ * `max + 1` over every row this license has ever had, approved or not — never
+ * the lowest free number. Reuse is the trap: the till's counter only jumps
+ * FORWARD to a new floor (see `CounterRepository.IncrementAndGetAsync`), so a
+ * till handed a lower block than it had keeps issuing numbers in its old range,
+ * which now belongs to whichever till inherited it. Two tills then print the
+ * same invoice numbers and nothing anywhere says so.
+ *
+ * Idempotent by the `terminalNumber === null` guard: a device that already has a
+ * number keeps it through every later re-activation, deactivation and return.
+ *
+ * The unique constraint on (licenseId, terminalNumber) is what makes this safe
+ * against two tills activating at the same instant — both read the same max, one
+ * insert loses, and the retry sees the winner's row.
+ */
+async function allocateTerminalNumber(device: Device): Promise<Device> {
+  if (device.terminalNumber !== null) return device;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const highest = await db.device.aggregate({
+      where: { licenseId: device.licenseId },
+      _max: { terminalNumber: true },
+    });
+    const next = (highest._max.terminalNumber ?? 0) + 1;
+
+    try {
+      return await db.device.update({
+        where: { id: device.id },
+        data: { terminalNumber: next },
+      });
+    } catch {
+      // Lost the race for `next`. Re-read and try again rather than failing the
+      // activation: a till without a number falls back to its manual setting,
+      // which is the state this exists to get it out of.
+    }
+  }
+
+  return device;
 }
 
 function pendingResult(): LicenseServerResult {

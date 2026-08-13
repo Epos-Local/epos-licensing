@@ -127,6 +127,25 @@ model Device {
     /// geo is compared against.
     isBaseline Boolean @default(false)
 
+    /// Which document-number block this till counts inside — 1, 2, 3… The client
+    /// multiplies it by its block size, so till 2's invoices start at 1,000,001
+    /// and cannot collide with till 1's while both are offline.
+    ///
+    /// Allocated here rather than typed in at the till because allocation needs
+    /// one authority that knows the whole set, and this is the only thing that
+    /// does. The till keeps a manual fallback for the case that matters: a
+    /// machine that has never reached this server still has to trade, and still
+    /// has to number what it sells.
+    ///
+    /// Assigned as `max + 1` over every row this license has ever had, never as
+    /// "lowest free". Reuse looks tidier and is a trap: the till's counter only
+    /// ever jumps FORWARD to a new floor, so a till moved to a lower block keeps
+    /// issuing numbers in its old one — straight into the range now belonging to
+    /// whichever till inherited it. Numbers are cheap; collisions are silent.
+    ///
+    /// Null on rows that have never been approved.
+    terminalNumber Int?
+
     firstSeenAt DateTime  @default(now())
     lastCheckIn DateTime?
     approvedAt  DateTime?
@@ -146,6 +165,12 @@ model Device {
     /// A device may only appear once per license. Re-activating the same
     /// deviceId updates the existing row rather than creating a duplicate.
     @@unique([licenseId, deviceId])
+    /// Two tills on one license may never hold the same document-number block.
+    /// A constraint rather than a check in the allocator: two tills activating
+    /// at the same moment both read the same `max`, and only the database can
+    /// settle that. Postgres treats NULLs as distinct, so unapproved rows do not
+    /// contend for the single null slot.
+    @@unique([licenseId, terminalNumber])
     @@index([status])
     @@index([deviceId])
 }

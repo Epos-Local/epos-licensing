@@ -27,6 +27,20 @@ export function check(
   if (detail) console.log(`        ${detail}`);
 }
 
+/**
+ * Records a check that could not be run, without counting it as either a pass or
+ * a failure.
+ *
+ * For assertions whose precondition the script does not control. The alternative
+ * — having the test force the precondition — is what makes a verification suite
+ * dangerous to point at a live database, and the other alternative, letting it
+ * fail every run, is what teaches everyone to ignore a red result.
+ */
+export function skip(description: string, why: string): void {
+  console.log(`  skip  ${description}`);
+  console.log(`        ${why}`);
+}
+
 export function checkEqual(
   description: string,
   actual: unknown,
