@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "docs:pdf": "tsx scripts/build-docs-pdf.ts",
     "db:studio": "prisma studio",
     "keypair": "node scripts/generate-keypair.mjs",
     "verify:signing": "tsx --env-file=.env scripts/verify-signing.ts",
