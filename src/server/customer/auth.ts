@@ -4,7 +4,7 @@ import { compare, hash } from "bcryptjs";
 import { z } from "zod";
 
 import { AuditEventType } from "generated/prisma";
-import { BCRYPT_COST, emailRule, passwordRule } from "~/server/admins";
+import { BCRYPT_COST, emailRule } from "~/server/admins";
 import { db } from "~/server/db";
 
 /**
@@ -15,6 +15,17 @@ import { db } from "~/server/db";
  */
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Deliberately lower than admins.ts's 12-character bar: an admin holds
+ * authority over every license in the system, a customer only their own shop,
+ * and this buyer is not tech-savvy (WEBSITE_BRIEF.md §3) — 12 characters would
+ * cost real signups for a threat model that doesn't justify it here.
+ */
+const customerPasswordRule = z
+  .string()
+  .min(8, "Use a password of at least 8 characters.")
+  .max(200, "That password is too long.");
 
 export interface CustomerAccount {
   id: string;
@@ -37,7 +48,7 @@ const registerSchema = z.object({
   contactName: z.string().trim().max(120).optional(),
   email: emailRule,
   phone: z.string().trim().max(40).optional(),
-  password: passwordRule,
+  password: customerPasswordRule,
 });
 
 const signInSchema = z.object({
