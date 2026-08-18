@@ -32,6 +32,9 @@ model Shop {
     updatedAt DateTime @updatedAt
 
     licenses License[]
+    /// The shop owner's own login, if they self-registered. Null for shops an
+    /// admin typed in by hand before self-registration existed, or still does.
+    customer Customer?
 
     @@index([name])
 }
@@ -87,6 +90,50 @@ model License {
 
     @@index([shopId])
     @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Customer self-registration. See ../SELF_REGISTRATION_DESIGN.md.
+//
+// A Customer is a shop owner's own login — distinct from `User` below, which
+// carries authority over every license in the system. Keeping them separate
+// tables, not a role column on one, means a role-check bug can leak at worst
+// into one other Customer's own data, never into admin authority.
+// ---------------------------------------------------------------------------
+
+model Customer {
+    id              String    @id @default(cuid())
+    email           String    @unique
+    /// bcrypt hash, cost 12 — matches admins.ts's BCRYPT_COST.
+    passwordHash    String
+    name            String?
+    emailVerifiedAt DateTime?
+
+    /// One customer per shop for now. A second staff login for the same shop
+    /// is a real future need but out of scope: widening this to a join table
+    /// later is additive, narrowing a many-to-many now would not be.
+    shopId String @unique
+    shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    sessions CustomerSession[]
+}
+
+/// A plain DB-backed session, not a JWT: a stored row can be revoked by
+/// deleting it (sign out everywhere on a compromised account), which a
+/// stateless token cannot without a denylist. Deliberately its own table
+/// rather than NextAuth's `Session`, which belongs to the admin `User` model.
+model CustomerSession {
+    id         String   @id @default(cuid())
+    token      String   @unique
+    customerId String
+    customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+    expires    DateTime
+    createdAt  DateTime @default(now())
+
+    @@index([customerId])
 }
 
 enum DeviceStatus {
@@ -256,6 +303,7 @@ enum AuditEventType {
     license_key_regenerated
     shop_created
     shop_updated
+    customer_registered
     admin_created
     admin_deleted
     admin_password_changed

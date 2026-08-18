@@ -19,14 +19,15 @@ import { db } from "~/server/db";
  */
 
 /** bcrypt cost. Slow enough to matter on a stolen hash, fast enough for a login. */
-const BCRYPT_COST = 12;
+export const BCRYPT_COST = 12;
 
-const passwordRule = z
+/** Exported for reuse by `~/server/customer/auth` — same password/email bar for both account kinds. */
+export const passwordRule = z
   .string()
   .min(12, "Use a password of at least 12 characters.")
   .max(200, "That password is too long.");
 
-const emailRule = z
+export const emailRule = z
   .string()
   .trim()
   .toLowerCase()
