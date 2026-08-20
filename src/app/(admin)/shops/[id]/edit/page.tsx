@@ -56,6 +56,24 @@ export default async function EditCustomerPage({
               defaultValue={customer.email ?? ""}
             />
           </div>
+          <div className="vbg-field">
+            <label className="vbg-label" htmlFor="shopLimit">
+              Subdomains allowed
+            </label>
+            <input
+              id="shopLimit"
+              name="shopLimit"
+              type="number"
+              min={0}
+              max={50}
+              defaultValue={customer.shopLimit}
+              required
+            />
+            <p className="vbg-helper">
+              How many of this customer&rsquo;s shops may activate a subdomain. There&rsquo;s no
+              pricing/plan system yet, so this is a plain number an admin sets.
+            </p>
+          </div>
         </div>
 
         <div

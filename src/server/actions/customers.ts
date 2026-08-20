@@ -92,6 +92,7 @@ export async function createCustomerAction(formData: FormData): Promise<void> {
 const updateCustomerSchema = z.object({
   name: z.string().trim().min(1, "A customer name is required.").max(120),
   email: emailField,
+  shopLimit: z.coerce.number().int().min(0).max(50),
 });
 
 export async function updateCustomerAction(formData: FormData): Promise<void> {
@@ -101,13 +102,14 @@ export async function updateCustomerAction(formData: FormData): Promise<void> {
   const parsed = updateCustomerSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email") ?? undefined,
+    shopLimit: formData.get("shopLimit"),
   });
 
   if (!parsed.success) {
     redirectWithNotice(editPath, parsed.error.issues[0]?.message ?? "Check the form and try again.");
   }
 
-  const { name, email } = parsed.data;
+  const { name, email, shopLimit } = parsed.data;
 
   if (email) {
     const existing = await db.customer.findUnique({ where: { email } });
@@ -116,9 +118,19 @@ export async function updateCustomerAction(formData: FormData): Promise<void> {
     }
   }
 
+  // Mirrors the license edit page's "can't go below what's already
+  // approved" rule — can't set a limit below the subdomains already active.
+  const activeCount = await db.shop.count({ where: { customerId: id, subdomain: { not: null } } });
+  if (shopLimit < activeCount) {
+    redirectWithNotice(
+      editPath,
+      `Can't go below ${activeCount} — this customer already has that many active subdomains.`,
+    );
+  }
+
   const customer = await db.customer.update({
     where: { id },
-    data: { name, email: email ?? null },
+    data: { name, email: email ?? null, shopLimit },
   });
 
   await db.auditEvent.create({
