@@ -22,21 +22,74 @@ datasource db {
 
 /// A customer. Deliberately minimal per the design doc's "not a full CRM"
 /// framing: just enough to make a license list human-readable and supportable.
+///
+/// Also doubles as the storefront-subdomain tenant record (see
+/// ../../Epos365/SUBDOMAIN_ARCHITECTURE.md) — the `subdomain`/`customDomain`/
+/// `styleConfig`/`templateId`/`isPublished` fields below are that addition.
+/// One `Shop` concept, not two: a subdomain website belongs to the same
+/// business the license belongs to. Those fields stay null until a customer
+/// actually activates a subdomain (gated by `Customer.shopLimit`) — nothing
+/// here is populated at registration time.
 model Shop {
-    id        String   @id @default(cuid())
-    name      String
-    email     String?
-    phone     String?
-    notes     String?
+    id   String  @id @default(cuid())
+    name String
+    /// The owner/contact's own name, as distinct from the business name — the
+    /// corporate website's quote form and registration form both collect one.
+    contactName String?
+    email       String?
+    phone       String?
+    notes       String?
+
+    /// "royalkebab" — validated slug, immutable once published. Null until a
+    /// subdomain is activated; most shops may never have one.
+    subdomain String? @unique
+    /// e.g. "royalkebab.ie" — null until the owner connects a custom domain.
+    customDomain String? @unique
+    /// Accent color, logo URL, hero copy, social links, product-grid layout —
+    /// validated with a zod schema at read AND write time, not trusted as-is.
+    styleConfig Json?
+    /// Which shared template bundle renders this shop's storefront. Only
+    /// `general` exists today — more values get appended as real template
+    /// families are added, following the config-driven pattern already
+    /// proven on the `asmfahim` branch of shopbridge (8 template families,
+    /// one switch statement, no per-template Shop schema).
+    templateId  TemplateId @default(general)
+    isPublished Boolean    @default(false)
+    publishedAt DateTime?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     licenses License[]
     /// The shop owner's own login, if they self-registered. Null for shops an
-    /// admin typed in by hand before self-registration existed, or still does.
-    customer Customer?
+    /// admin typed in by hand before self-registration existed, or a shop
+    /// that only ever came from an anonymous quote request.
+    ///
+    /// Nullable — not every Shop has a Customer — and not unique on this
+    /// side: one Customer account may own more than one Shop (see
+    /// `Customer.shopLimit`). Was a strict one-to-one via `Customer.shopId`;
+    /// flipped to this FK so a second shop per account is representable at
+    /// all. License/Device/AppRelease/AuditEvent all key off `shopId`/
+    /// `licenseId` directly and never touch `Customer`, so this flip does not
+    /// change any field the WPF POS client reads — no client release needed
+    /// for this change.
+    customerId String?
+    customer   Customer? @relation(fields: [customerId], references: [id])
+    /// Quote requests submitted for this shop — see QuoteRequest below. A shop
+    /// created purely from an anonymous quote may never get a License at all.
+    quoteRequests QuoteRequest[]
 
     @@index([name])
+    @@index([customerId])
+}
+
+/// One shared template bundle. Deliberately just `general` for now — a
+/// config-driven single template, per SUBDOMAIN_ARCHITECTURE.md's "don't
+/// build a second template until a second one is actually needed." Add
+/// values here (never rename/remove one already in use) as real template
+/// families are built.
+enum TemplateId {
+    general
 }
 
 /// `expired` is deliberately absent: expiry is derived from `validUntil` on
@@ -102,18 +155,41 @@ model License {
 // ---------------------------------------------------------------------------
 
 model Customer {
-    id              String    @id @default(cuid())
-    email           String    @unique
-    /// bcrypt hash, cost 12 — matches admins.ts's BCRYPT_COST.
-    passwordHash    String
+    id String @id @default(cuid())
+    /// Nullable: an admin can create a Customer purely as a licensing/business
+    /// record (see Shop's own comment) with no email at all, same as the
+    /// existing hand-typed-Shop workflow allowed. Still unique when present —
+    /// Postgres treats multiple NULLs as distinct, so any number of emailless
+    /// customers can coexist.
+    email String? @unique
+    /// bcrypt hash, cost 12 — matches admins.ts's BCRYPT_COST. Nullable: null
+    /// means "no login set up yet", a normal state for an admin-managed
+    /// customer who was never given self-service access. `signInCustomer`
+    /// must reject a null hash explicitly rather than passing it to
+    /// `compare`, which would throw. Set only through `setCustomerPassword`
+    /// (admin panel or self-registration) — never by hand in the DB, since
+    /// this column is always a hash, never a plaintext password.
+    passwordHash    String?
     name            String?
     emailVerifiedAt DateTime?
 
-    /// One customer per shop for now. A second staff login for the same shop
-    /// is a real future need but out of scope: widening this to a join table
-    /// later is additive, narrowing a many-to-many now would not be.
-    shopId String @unique
-    shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+    /// How many of this account's shops may have an *active subdomain* —
+    /// not how many Shop rows exist (registration already creates one
+    /// regardless). Defaults to 0: a new signup can download the POS app
+    /// immediately but cannot activate a storefront subdomain until a
+    /// platform admin raises this, either from the admin panel or directly
+    /// in the DB — there is no pricing/plan system yet, so this is a plain
+    /// manually-set number, not tier-derived. See
+    /// ../../Epos365/SUBDOMAIN_ARCHITECTURE.md, "Milestone 1 scope".
+    shopLimit Int @default(0)
+
+    /// One account may own more than one Shop (see `shopLimit` above).
+    /// Was `shopId String @unique` (strict one-to-one) — flipped to this
+    /// back-relation so a second shop is representable; the FK now lives on
+    /// `Shop.customerId` instead. Registration still creates exactly one
+    /// Shop per signup today, so this is empty-or-single-element in
+    /// practice until multi-shop accounts are a real feature.
+    shops Shop[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -134,6 +210,32 @@ model CustomerSession {
     createdAt  DateTime @default(now())
 
     @@index([customerId])
+}
+
+/// One submission of the corporate website's "Get a free quote" form/price
+/// calculator. Always attached to a Shop: a signed-in visitor's submission
+/// attaches to their existing Shop (see /api/leads/quote-request), everyone
+/// else gets a new one created for it — the same Shop a hand-typed admin
+/// entry or a self-registration would produce, so there is one list of
+/// "shops we know about" rather than a separate lead table per intake path.
+model QuoteRequest {
+    id     String @id @default(cuid())
+    shopId String
+    shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+    /// Takeaway / Restaurant / Café / Retail shop. Free text rather than an
+    /// enum: it is marketing copy and will change more often than the schema.
+    businessType String?
+    message      String?
+    /// Monthly estimate in euro cents at submission time, from the calculator.
+    /// Integer cents, never a float. Null when the plain form was used instead.
+    estimateCents Int?
+    /// What the calculator had selected, as {optionId: quantity}.
+    selection Json?
+
+    createdAt DateTime @default(now())
+
+    @@index([shopId])
 }
 
 enum DeviceStatus {
@@ -304,6 +406,10 @@ enum AuditEventType {
     shop_created
     shop_updated
     customer_registered
+    customer_created
+    customer_updated
+    customer_password_set
+    quote_requested
     admin_created
     admin_deleted
     admin_password_changed

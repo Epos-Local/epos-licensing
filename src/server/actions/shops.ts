@@ -9,12 +9,14 @@ import { db } from "~/server/db";
 import { formValue, redirectWithNotice, requireAdmin } from "./shared";
 
 /**
- * Customers, kept to what makes a license list readable and supportable. No
- * billing, no tickets, no notes beyond a free-text line, per the design doc's
- * "not a full CRM" scope.
+ * A Shop's own fields, kept to what makes a license list readable and
+ * supportable. No billing, no tickets, no notes beyond a free-text line, per
+ * the design doc's "not a full CRM" scope. Every Shop belongs to a Customer
+ * now (see Epos365/SUBDOMAIN_ARCHITECTURE.md) — these actions only ever
+ * touch a Shop nested under one, never a standalone one.
  */
 const shopSchema = z.object({
-  name: z.string().trim().min(1, "A business name is required."),
+  name: z.string().trim().min(1, "A shop name is required."),
   email: z
     .string()
     .trim()
@@ -27,13 +29,12 @@ const shopSchema = z.object({
 
 export async function createShopAction(formData: FormData): Promise<void> {
   const actor = await requireAdmin();
+  const customerId = formValue(formData, "customerId");
+  const newPath = `/shops/${customerId}/shop/new`;
   const parsed = shopSchema.safeParse(readShopForm(formData));
 
   if (!parsed.success) {
-    redirectWithNotice(
-      "/shops",
-      parsed.error.issues[0]?.message ?? "Check the form and try again.",
-    );
+    redirectWithNotice(newPath, parsed.error.issues[0]?.message ?? "Check the form and try again.");
   }
 
   const shop = await db.shop.create({
@@ -42,6 +43,7 @@ export async function createShopAction(formData: FormData): Promise<void> {
       email: parsed.data.email ?? null,
       phone: parsed.data.phone ?? null,
       notes: parsed.data.notes ?? null,
+      customerId,
     },
   });
 
@@ -49,24 +51,23 @@ export async function createShopAction(formData: FormData): Promise<void> {
     data: {
       type: AuditEventType.shop_created,
       actor,
-      summary: `Customer ${shop.name} added`,
+      summary: `Shop ${shop.name} added`,
     },
   });
 
   revalidatePath("/shops");
-  redirectWithNotice("/shops", `${shop.name} added.`, "success");
+  redirectWithNotice(`/shops/${customerId}`, `${shop.name} added.`, "success");
 }
 
 export async function updateShopAction(formData: FormData): Promise<void> {
   const actor = await requireAdmin();
   const id = formValue(formData, "id");
+  const customerId = formValue(formData, "customerId");
+  const editPath = `/shops/${customerId}/shop/${id}`;
   const parsed = shopSchema.safeParse(readShopForm(formData));
 
   if (!parsed.success) {
-    redirectWithNotice(
-      "/shops",
-      parsed.error.issues[0]?.message ?? "Check the form and try again.",
-    );
+    redirectWithNotice(editPath, parsed.error.issues[0]?.message ?? "Check the form and try again.");
   }
 
   const shop = await db.shop.update({
@@ -83,12 +84,12 @@ export async function updateShopAction(formData: FormData): Promise<void> {
     data: {
       type: AuditEventType.shop_updated,
       actor,
-      summary: `Customer ${shop.name} updated`,
+      summary: `Shop ${shop.name} updated`,
     },
   });
 
   revalidatePath("/shops");
-  redirectWithNotice("/shops", `${shop.name} updated.`, "success");
+  redirectWithNotice(`/shops/${customerId}`, `${shop.name} updated.`, "success");
 }
 
 function readShopForm(formData: FormData) {

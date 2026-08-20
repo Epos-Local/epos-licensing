@@ -13,6 +13,10 @@
 /prisma/db.sqlite-journal
 db.sqlite
 
+# ad-hoc DB backups (scripts/backup-db.sh) — full customer/license data, never
+# committed
+/backups
+
 # generated prisma client — rebuilt by `postinstall`, platform-specific engine
 # binaries, not source
 /generated

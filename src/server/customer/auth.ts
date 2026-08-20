@@ -22,7 +22,7 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
  * and this buyer is not tech-savvy (WEBSITE_BRIEF.md §3) — 12 characters would
  * cost real signups for a threat model that doesn't justify it here.
  */
-const customerPasswordRule = z
+export const customerPasswordRule = z
   .string()
   .min(8, "Use a password of at least 8 characters.")
   .max(200, "That password is too long.");
@@ -92,16 +92,17 @@ export async function registerCustomer(input: unknown): Promise<CustomerAuthResu
 
   const { customer, shop } = await db.$transaction(
     async (tx) => {
-      const shop = await tx.shop.create({
-        data: { name: businessName, email, phone: phone ?? null },
-      });
+      // Customer created first now that Shop.customerId is the FK (was the
+      // reverse — Customer.shopId — before shops became one-to-many).
       const customer = await tx.customer.create({
         data: {
           email,
           passwordHash,
           name: contactName ?? null,
-          shopId: shop.id,
         },
+      });
+      const shop = await tx.shop.create({
+        data: { name: businessName, email, phone: phone ?? null, customerId: customer.id },
       });
       await tx.auditEvent.create({
         data: {
@@ -127,7 +128,10 @@ export async function registerCustomer(input: unknown): Promise<CustomerAuthResu
     expires: session.expires,
     customer: {
       id: customer.id,
-      email: customer.email,
+      // Non-null: `email` was just passed into this same tx.customer.create
+      // call above. The field is nullable on the model in general (an
+      // admin-created customer may have none) but this branch always has one.
+      email: customer.email!,
       name: customer.name,
       shopId: shop.id,
       shopName: shop.name,
@@ -144,16 +148,23 @@ export async function signInCustomer(input: unknown): Promise<CustomerAuthResult
 
   const customer = await db.customer.findUnique({
     where: { email },
-    include: { shop: true },
+    include: { shops: true },
   });
 
   // Same message whether the email is unknown or the password is wrong, so a
   // caller cannot use this endpoint to enumerate registered emails.
   const invalid = { ok: false, error: "Incorrect email or password." } as const;
 
-  if (!customer) return invalid;
+  // No hash set — an admin-created customer with no self-service login yet.
+  // Reject before calling compare(), which throws on a null hash.
+  if (!customer?.passwordHash) return invalid;
   const matches = await compare(password, customer.passwordHash);
   if (!matches) return invalid;
+
+  // `shops[0]` — registration always creates exactly one; picking a specific
+  // shop to show is only meaningful once an account can hold more than one.
+  const shop = customer.shops[0];
+  if (!shop) return invalid;
 
   const session = await createSession(customer.id);
 
@@ -163,10 +174,14 @@ export async function signInCustomer(input: unknown): Promise<CustomerAuthResult
     expires: session.expires,
     customer: {
       id: customer.id,
-      email: customer.email,
+      // Non-null: reaching this line already required a successful
+      // compare() against customer.passwordHash, which itself required
+      // finding this row `where: { email }` on the email the caller signed
+      // in with — this customer has both an email and a working login.
+      email: customer.email!,
       name: customer.name,
-      shopId: customer.shopId,
-      shopName: customer.shop.name,
+      shopId: shop.id,
+      shopName: shop.name,
     },
   };
 }
@@ -179,17 +194,24 @@ export async function customerFromSessionToken(
 
   const session = await db.customerSession.findUnique({
     where: { token },
-    include: { customer: { include: { shop: true } } },
+    include: { customer: { include: { shops: true } } },
   });
 
   if (!session || session.expires < new Date()) return null;
 
+  // `shops[0]` — same "exactly one, for now" assumption as signInCustomer.
+  const shop = session.customer.shops[0];
+  if (!shop) return null;
+
   return {
     id: session.customer.id,
-    email: session.customer.email,
+    // Non-null: a CustomerSession only ever gets created by createSession(),
+    // called from registerCustomer/signInCustomer, both of which already
+    // required a real email on this row.
+    email: session.customer.email!,
     name: session.customer.name,
-    shopId: session.customer.shopId,
-    shopName: session.customer.shop.name,
+    shopId: shop.id,
+    shopName: shop.name,
   };
 }
 
@@ -197,4 +219,36 @@ export async function customerFromSessionToken(
 export async function signOutCustomer(token: string | null): Promise<void> {
   if (!token) return;
   await db.customerSession.deleteMany({ where: { token } });
+}
+
+/**
+ * Sets (or replaces) a customer's login password — the only way
+ * `passwordHash` is ever written outside of self-registration. Always hashes
+ * here; nothing upstream of this function should ever handle or store a raw
+ * hash, so there is exactly one place a plaintext password becomes bcrypt.
+ *
+ * Requires the customer to already have an email: login is
+ * email+password, so a password with no email to pair it with could never
+ * actually be used to sign in. The admin panel's "set password" action
+ * should ask for an email first if this fails, not silently accept it.
+ */
+export async function setCustomerPassword(
+  customerId: string,
+  password: unknown,
+): Promise<{ ok: boolean; error?: string }> {
+  const parsed = customerPasswordRule.safeParse(password);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+
+  const customer = await db.customer.findUnique({ where: { id: customerId } });
+  if (!customer) return { ok: false, error: "Customer not found." };
+  if (!customer.email) {
+    return { ok: false, error: "Add an email for this customer before setting a password." };
+  }
+
+  const passwordHash = await hash(parsed.data, BCRYPT_COST);
+  await db.customer.update({ where: { id: customerId }, data: { passwordHash } });
+
+  return { ok: true };
 }
