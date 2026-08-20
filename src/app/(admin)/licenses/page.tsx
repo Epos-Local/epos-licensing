@@ -28,7 +28,7 @@ export default async function LicensesPage({
   const licenses = await db.license.findMany({
     orderBy: { validUntil: "asc" },
     include: {
-      shop: true,
+      shop: { include: { customer: true } },
       devices: true,
     },
   });
@@ -76,7 +76,7 @@ export default async function LicensesPage({
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">Customer</th>
+                  <th scope="col">Shop</th>
                   <th scope="col">Key</th>
                   <th scope="col">Status</th>
                   <th scope="col" style={{ textAlign: "right" }}>
@@ -92,6 +92,15 @@ export default async function LicensesPage({
                       <Link href={`/licenses/${license.id}`}>
                         {license.shop.name}
                       </Link>
+                      {license.shop.customer?.name &&
+                        license.shop.customer.name !== license.shop.name && (
+                          <>
+                            <br />
+                            <span className="vbg-meta">
+                              {license.shop.customer.name}
+                            </span>
+                          </>
+                        )}
                     </td>
                     <td className="vbg-mono">{license.key}</td>
                     <td>

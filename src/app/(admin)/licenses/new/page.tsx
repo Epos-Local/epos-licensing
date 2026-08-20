@@ -21,7 +21,10 @@ export default async function NewLicensePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { notice, tone } = readNotice(await searchParams);
-  const shops = await db.shop.findMany({ orderBy: { name: "asc" } });
+  const shops = await db.shop.findMany({
+    orderBy: { name: "asc" },
+    include: { customer: true },
+  });
 
   const defaultExpiry = new Date();
   defaultExpiry.setUTCFullYear(defaultExpiry.getUTCFullYear() + 1);
@@ -33,12 +36,11 @@ export default async function NewLicensePage({
       {shops.length === 0 ? (
         <>
           <p className="vbg-lede vbg-span-7">
-            A license belongs to a customer, and there are no customers on file
-            yet.
+            A license belongs to a shop, and there are no shops on file yet.
           </p>
           <p className="vbg-reading">
-            <Link href="/shops">Add the customer first</Link>, then come back
-            here.
+            <Link href="/shops">Add a customer first</Link> — creating one adds
+            a shop too — then come back here.
           </p>
         </>
       ) : (
@@ -53,15 +55,17 @@ export default async function NewLicensePage({
             <div className="vbg-custom-form-row">
               <div className="vbg-field">
                 <label className="vbg-label" htmlFor="shopId">
-                  Customer
+                  Shop
                 </label>
                 <select id="shopId" name="shopId" required defaultValue="">
                   <option value="" disabled>
-                    Choose a customer
+                    Choose a shop
                   </option>
                   {shops.map((shop) => (
                     <option key={shop.id} value={shop.id}>
-                      {shop.name}
+                      {shop.customer?.name && shop.customer.name !== shop.name
+                        ? `${shop.name} — ${shop.customer.name}`
+                        : shop.name}
                     </option>
                   ))}
                 </select>
@@ -112,7 +116,7 @@ export default async function NewLicensePage({
                   name="shopLabel"
                   type="text"
                   maxLength={120}
-                  placeholder="Defaults to the customer name"
+                  placeholder="Defaults to the shop name"
                 />
                 <p className="vbg-helper">
                   Shown on the cashier&rsquo;s own License screen.
