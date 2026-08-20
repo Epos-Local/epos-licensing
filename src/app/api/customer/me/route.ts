@@ -21,7 +21,15 @@ export async function GET(request: Request): Promise<Response> {
   return json(
     {
       ok: true,
-      customer: { email: customer.email, name: customer.name, shopName: customer.shopName },
+      customer: {
+        email: customer.email,
+        name: customer.name,
+        shopId: customer.shopId,
+        shopName: customer.shopName,
+        shopLimit: customer.shopLimit,
+        subdomain: customer.subdomain,
+        isPublished: customer.isPublished,
+      },
       license,
     },
     200,

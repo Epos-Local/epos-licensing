@@ -33,6 +33,11 @@ export interface CustomerAccount {
   name: string | null;
   shopId: string;
   shopName: string;
+  /** How many of this account's shops may have an active subdomain. */
+  shopLimit: number;
+  /** This shop's own subdomain, once activated — null until then. */
+  subdomain: string | null;
+  isPublished: boolean;
 }
 
 export interface CustomerAuthResult {
@@ -135,6 +140,11 @@ export async function registerCustomer(input: unknown): Promise<CustomerAuthResu
       name: customer.name,
       shopId: shop.id,
       shopName: shop.name,
+      // A brand-new customer starts at the schema default (0) and with no
+      // shops that have a subdomain yet — no extra query needed here.
+      shopLimit: customer.shopLimit,
+      subdomain: shop.subdomain,
+      isPublished: shop.isPublished,
     },
   };
 }
@@ -182,6 +192,9 @@ export async function signInCustomer(input: unknown): Promise<CustomerAuthResult
       name: customer.name,
       shopId: shop.id,
       shopName: shop.name,
+      shopLimit: customer.shopLimit,
+      subdomain: shop.subdomain,
+      isPublished: shop.isPublished,
     },
   };
 }
@@ -212,6 +225,9 @@ export async function customerFromSessionToken(
     name: session.customer.name,
     shopId: shop.id,
     shopName: shop.name,
+    shopLimit: session.customer.shopLimit,
+    subdomain: shop.subdomain,
+    isPublished: shop.isPublished,
   };
 }
 
