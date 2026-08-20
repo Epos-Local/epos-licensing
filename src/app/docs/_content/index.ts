@@ -1,4 +1,7 @@
+import { expiryDates } from "./expiry-dates";
+import { lowStockWarnings } from "./low-stock-warnings";
 import { sandboxSales } from "./sandbox-sales";
+import { slowMovingStock } from "./slow-moving-stock";
 import { type Guide } from "./types";
 
 /**
@@ -9,11 +12,16 @@ import { type Guide } from "./types";
  * Adding a guide therefore means adding a file and one line here, and it turns
  * up in all three places at once.
  *
- * Hand-ordered rather than read off the filesystem. There will only ever be a
- * handful of these, and reading order is an editorial decision, not something
- * alphabetical accident should settle.
+ * Hand-ordered rather than read off the filesystem. The three stock guides sit
+ * together and run low stock, then expiry, then slow moving: what to reorder,
+ * what to shift, what to stop buying. Alphabetical order would split them.
  */
-export const guides: Guide[] = [sandboxSales];
+export const guides: Guide[] = [
+  sandboxSales,
+  lowStockWarnings,
+  expiryDates,
+  slowMovingStock,
+];
 
 export const guideBySlug = (slug: string): Guide | undefined =>
   guides.find((guide) => guide.slug === slug);

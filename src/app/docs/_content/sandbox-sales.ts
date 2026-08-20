@@ -67,7 +67,7 @@ export const sandboxSales: Guide = {
             ],
             [
               "Receipt numbers start with `SBX-`",
-              "Practice sales never take a number from your real receipt sequence, so it stays unbroken.",
+              "Practice sales never use up one of your real receipt numbers, so there are no gaps in them.",
             ],
             [
               "The main menu is blocked",
@@ -103,7 +103,7 @@ export const sandboxSales: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Ring up six bottles and hand them over, and six bottles have left the shop. The count drops by six, and your low-stock warnings react exactly as they would to a real sale. The alternative would be a stock figure that quietly drifts further from the shelf every time someone trains on the till.",
+          text: "Ring up six bottles and hand them over, and six bottles have left the shop. The count drops by six, and your low-stock warnings react exactly as they would to a real sale. If training did not take stock off, your counts would drift further from the shelf every time somebody practised.",
         },
         {
           kind: "p",
@@ -111,11 +111,11 @@ export const sandboxSales: Guide = {
         },
         {
           kind: "p",
-          text: "The till also assumes whatever expires soonest goes out first. When it works out what is left on the shelf it counts the batches dated furthest ahead as the ones remaining, so an expiry warning always points at the nearest date. What matters is the expiry date, not when the delivery arrived. A later delivery with a shorter shelf life is used up before an earlier one that keeps longer. Practice sales feed the same calculation as real ones.",
+          text: "The till also assumes whatever expires soonest goes out first. When it works out what is left on the shelf it counts the batches dated furthest ahead as the ones remaining, so an expiry warning always points at the nearest date. What matters is the expiry date, not when the delivery arrived. A later delivery with a shorter shelf life is used up before an earlier one that keeps longer. Practice sales count towards this the same as real ones.",
         },
         {
           kind: "p",
-          text: "That is an assumption rather than a check. Nothing on the till knows which pack a member of staff actually reached for, so the warnings are only as good as the rotation on the shelf.",
+          text: "The till is assuming, not checking. It has no way of knowing which pack a member of staff actually reached for, so the warnings are only as good as the rotation on the shelf.",
         },
       ],
     },
@@ -141,7 +141,7 @@ export const sandboxSales: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Adding a practice sale to live issues it a fresh number from the live sequence and overwrites the old one in place. No record of the old number is kept. Someone holding `SBX-26-200-000001` is holding a number that no longer exists anywhere in the system, and searching for it returns nothing. The sale might now be `26-200-000002`. The digits moved as well, so it is not the old number with the `SBX-` stripped off.",
+          text: "Adding a practice sale to live gives it a fresh number from your real receipt numbering, and the old one is written over. Nothing keeps a copy of it. Someone holding `SBX-26-200-000001` is holding a number that no longer exists on the till, and searching for it finds nothing. The sale might now be `26-200-000002`. The digits moved as well, so it is not the old number with the `SBX-` stripped off.",
         },
         {
           kind: "p",

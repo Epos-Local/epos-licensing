@@ -1,3 +1,6 @@
 {
-  "sandbox-sales": "76819db7553eb0f9188fd3ed4291c0316b8d573ac0e714353300fd99d86f2198"
+  "sandbox-sales": "c9e420c9e5b3641e3cd48dbefcc72c2844206996385db08dfd1e41dc57987bde",
+  "low-stock-warnings": "67944bb85274385b0e0c208b009d9acf6ce52c68fd2f4f322859c3832aae8212",
+  "expiry-dates": "f698fc598ab53cdb036d263dc5fa8406264698c477b4888795a643e32fd896ad",
+  "slow-moving-stock": "0e80eb47e8714c52a2a5e21d913a2e38e3f7ebf8ccdf5eee01c7c80d88372e97"
 }

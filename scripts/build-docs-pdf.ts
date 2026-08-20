@@ -96,8 +96,9 @@ function renderGuide(guide: Guide): string {
     .map((section) => {
       const [first, ...rest] = section.blocks;
       const opener = first ? renderBlock(first) : "";
+      const cls = section.startsNewPage ? "keep page-break" : "keep";
       return (
-        `<div class="keep"><h2>${escapeHtml(section.heading)}</h2>${opener}</div>` +
+        `<div class="${cls}"><h2>${escapeHtml(section.heading)}</h2>${opener}</div>` +
         rest.map(renderBlock).join("")
       );
     })
@@ -119,6 +120,9 @@ function renderGuide(guide: Guide): string {
      between sections lives on this box rather than on the h2, so a section that
      starts a page does not also inherit 7mm of dead space above it. */
   .keep { margin-top: 7mm; break-inside: avoid; page-break-inside: avoid; }
+  /* Set per section by startsNewPage. The top margin goes: a section opening a
+     page should start at the top of it, not 7mm down. */
+  .page-break { break-before: page; page-break-before: always; margin-top: 0; }
   p { margin: 0 0 2.5mm; orphans: 3; widows: 3; }
   ul { margin: 0 0 3mm; padding-left: 5mm; }
   li { margin-bottom: 1.2mm; break-inside: avoid; }

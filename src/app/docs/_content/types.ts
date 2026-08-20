@@ -27,6 +27,16 @@ export type Block =
 export type Section = {
   heading: string;
   blocks: Block[];
+  /**
+   * Start this section on a fresh page in the PDF.
+   *
+   * Print only. The web page is one continuous column and has no pages to break,
+   * so the browser renderer ignores it. Reach for this when a section reads
+   * badly split across a fold, not to tidy up ragged page endings: every one of
+   * these leaves white space behind it, and a document full of them wastes more
+   * paper than it saves confusion.
+   */
+  startsNewPage?: boolean;
 };
 
 export type Guide = {
