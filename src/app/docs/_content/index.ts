@@ -1,9 +1,12 @@
+import { cashInOut } from "./cash-in-out";
+import { creditPayments } from "./credit-payments";
 import { endOfDay } from "./end-of-day";
 import { expiryDates } from "./expiry-dates";
 import { lowStockWarnings } from "./low-stock-warnings";
 import { sandboxSales } from "./sandbox-sales";
 import { slowMovingStock } from "./slow-moving-stock";
 import { type Guide } from "./types";
+import { usersAndPermissions } from "./users-and-permissions";
 
 /**
  * Every guide, in the order a reader should meet them.
@@ -23,6 +26,9 @@ export const guides: Guide[] = [
   expiryDates,
   slowMovingStock,
   endOfDay,
+  cashInOut,
+  creditPayments,
+  usersAndPermissions,
 ];
 
 export const guideBySlug = (slug: string): Guide | undefined =>

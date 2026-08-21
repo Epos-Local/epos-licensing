@@ -4,5 +4,8 @@
   "expiry-dates": "cb993cf60613f9f26c0d4919668988f17c25bb649444de921f9886405713824a",
   "slow-moving-stock": "6b673ebff45ba4e655bf8b332f48e5a89c89526819ece5bc192b78b9a4c8a490",
   "end-of-day": "252342121fc9f45a2a2dcd134562cf56d9914569eec23645c0cf470a6d02a920",
-  "full-documentation": "019d9a9b4b980eeee1296ce61b1ca7588748111e1c7f3f472c3c5fa13456f2c1"
+  "cash-in-out": "0e0f1a7369d2b1281f0c643dd22ddbe7e9626872f9dad62a9a1867667ef57473",
+  "credit-payments": "7d7ed1ab714b72efa26c7f8e697686efe15850ca48c20bd908866d94ed5c7c06",
+  "users-and-permissions": "d1ab75b116bc84a9ce3dec92929bc95936b25cedd1e3ff7aa3c77f4da023b4c2",
+  "full-documentation": "058e99d51ec51b3f9930a36aa124f9e803c4aee6a55fcd1db966854f5100adbc"
 }
