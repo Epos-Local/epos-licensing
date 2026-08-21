@@ -100,8 +100,9 @@ export const databaseBackup: Guide = {
         {
           kind: "ul",
           items: [
-            "Only a .db file this app made can be imported. A file from a newer version of the app than what is installed will be rejected too.",
+            "Import database only takes a .db file this app made. A file from a newer version of the app than what is installed will be rejected too.",
             "Restoring is a full replace, not a merge. Anything rung up since the backup was taken is gone once you import it.",
+            "Export changes writes a .possync file, a different format entirely, and only Merge changes reads it back in. The two pairs, Backup/Import and Export/Merge, do not mix.",
             "Export changes and Import database are not the same thing, and picking the wrong one matters: import wipes out a till's own trading, merge only adds to it.",
           ],
         },
