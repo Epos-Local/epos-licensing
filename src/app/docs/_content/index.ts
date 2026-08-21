@@ -1,3 +1,4 @@
+import { endOfDay } from "./end-of-day";
 import { expiryDates } from "./expiry-dates";
 import { lowStockWarnings } from "./low-stock-warnings";
 import { sandboxSales } from "./sandbox-sales";
@@ -21,6 +22,7 @@ export const guides: Guide[] = [
   lowStockWarnings,
   expiryDates,
   slowMovingStock,
+  endOfDay,
 ];
 
 export const guideBySlug = (slug: string): Guide | undefined =>
