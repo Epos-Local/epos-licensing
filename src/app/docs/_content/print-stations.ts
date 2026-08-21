@@ -1,0 +1,92 @@
+import { type Guide } from "./types";
+
+/**
+ * Sourced from KitchenTicketPrintOrchestrator/PrintStationAssignmentEditor:
+ * creating a station's name and assigning it a printer are two separate
+ * screens, a station wins on its own product assignment over its category's,
+ * and there is deliberately no fallback printer for a misconfigured station
+ * (matching Aronium's own behaviour), with only a warning badge in Settings.
+ */
+export const printStations: Guide = {
+  slug: "print-stations",
+  title: "Print stations",
+  lede: "Send kitchen and bar tickets to the right printer automatically, by what was ordered.",
+  summary: "Setting up a print station, routing products to it, and the warning that means it will not print.",
+  sections: [
+    {
+      heading: "What a print station is",
+      blocks: [
+        {
+          kind: "p",
+          text: "A print station is a named destination, like Kitchen or Bar, with one printer attached to it. Route a product to a station and every time it is ordered, a ticket for just that station's items goes to that printer.",
+        },
+        {
+          kind: "p",
+          text: "Anything not routed to a station falls back to the single Kitchen ticket printer set in Settings -> Print -> Printer selection.",
+        },
+      ],
+    },
+    {
+      heading: "Setting one up",
+      blocks: [
+        {
+          kind: "p",
+          text: "It is two steps, on two different screens.",
+        },
+        {
+          kind: "ul",
+          items: [
+            "Management -> Print stations: create the station and give it a name.",
+            "Settings -> Print -> Print stations: pick that station from the list and choose which printer it prints to.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "A station created but never given a printer looks finished on the Management screen. It is not: nothing routed to it will print until a printer is chosen for it in Settings.",
+        },
+      ],
+    },
+    {
+      heading: "Routing products to a station",
+      blocks: [
+        {
+          kind: "p",
+          text: "Open a product or a category and look for its Print stations tab. Pick a station there and every order for that item goes to it.",
+        },
+        {
+          kind: "p",
+          text: "Routing a category routes everything in it. A product can still be given its own station to override that, and its own choice always wins over the category's.",
+        },
+        {
+          kind: "p",
+          text: "An item can be sent to more than one station at once, if it needs a ticket in two places.",
+        },
+      ],
+    },
+    {
+      heading: "The warning to watch for",
+      blocks: [
+        {
+          kind: "p",
+          text: "In Settings -> Print -> Print stations, a station missing its printer shows a red badge next to it. That is the only warning you get: a station in this state does not fall back to any other printer, it simply drops whatever is routed to it.",
+        },
+        {
+          kind: "p",
+          text: "Check for that badge after any change to your printers or stations, before it costs you a lost order.",
+        },
+      ],
+    },
+    {
+      heading: "Worth knowing",
+      blocks: [
+        {
+          kind: "ul",
+          items: [
+            "Settings -> Print -> Customize receipt has a Kitchen item text size setting (Normal, Large, Extra large) that only affects kitchen tickets, not the customer's receipt.",
+            "There is no reprint button for a kitchen ticket once it has gone to the printer.",
+          ],
+        },
+      ],
+    },
+  ],
+};
