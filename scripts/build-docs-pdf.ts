@@ -125,12 +125,15 @@ const STYLE = `
   /* Full-manual cover page only (see renderCover). Pushed down from the top
      rather than dead-centered: centering the whole block (title + contents
      list) put the title itself visibly below the page's midpoint, which read
-     as a mistake rather than a deliberate cover. */
-  .cover { padding-top: 70mm; }
-  .cover h1 { font-size: 32pt; }
-  .cover .sub { font-size: 14pt; margin-bottom: 14mm; }
+     as a mistake rather than a deliberate cover. The top offset and list
+     spacing are sized for the guide count at the time of writing (14); if the
+     list keeps growing, shrink padding-top and .cover li's padding before it
+     next overflows onto a second page. */
+  .cover { padding-top: 30mm; }
+  .cover h1 { font-size: 30pt; }
+  .cover .sub { font-size: 13pt; margin-bottom: 8mm; }
   .cover ul { list-style: none; padding-left: 0; margin: 0; }
-  .cover li { font-size: 11.5pt; padding: 2.5mm 0; border-top: 1px solid #d5d5d5; }
+  .cover li { font-size: 11pt; padding: 1.8mm 0; border-top: 1px solid #d5d5d5; }
   .cover li:last-child { border-bottom: 1px solid #d5d5d5; }
 `;
 
