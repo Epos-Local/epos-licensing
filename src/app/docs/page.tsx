@@ -21,8 +21,8 @@ export default function DocsIndexPage() {
 
       <p className="vbg-lede vbg-span-7">
         Step-by-step guides for everyday till use, not the install process.
-        No sign-in required — open them directly on the till or send the link
-        to a shop.
+        No sign-in required, so open them directly on the till or send the
+        link to a shop.
       </p>
 
       <div className="vbg-table-wrap vbg-span-12">
