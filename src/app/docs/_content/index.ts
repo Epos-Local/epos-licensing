@@ -1,11 +1,14 @@
 import { cashInOut } from "./cash-in-out";
 import { creditPayments } from "./credit-payments";
+import { databaseBackup } from "./database-backup";
 import { emailReports } from "./email-reports";
 import { endOfDay } from "./end-of-day";
 import { expiryDates } from "./expiry-dates";
 import { lowStockWarnings } from "./low-stock-warnings";
 import { printerSetup } from "./printer-setup";
 import { printStations } from "./print-stations";
+import { productImport } from "./product-import";
+import { promotions } from "./promotions";
 import { sandboxSales } from "./sandbox-sales";
 import { slowMovingStock } from "./slow-moving-stock";
 import { type Guide } from "./types";
@@ -35,6 +38,9 @@ export const guides: Guide[] = [
   printStations,
   printerSetup,
   emailReports,
+  productImport,
+  promotions,
+  databaseBackup,
 ];
 
 export const guideBySlug = (slug: string): Guide | undefined =>
