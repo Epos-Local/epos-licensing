@@ -122,10 +122,11 @@ const STYLE = `
      the table already says what it is, so it would only repeat itself. */
   caption { display: none; }
   .foot { margin-top: 8mm; padding-top: 2mm; border-top: 1px solid #d5d5d5; color: #6a6a6a; font-size: 8.5pt; }
-  /* Full-manual cover page only (see renderCover). Centered on the page rather
-     than top-aligned like every other page, since it has nothing else on it
-     to sit above. */
-  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 250mm; }
+  /* Full-manual cover page only (see renderCover). Pushed down from the top
+     rather than dead-centered: centering the whole block (title + contents
+     list) put the title itself visibly below the page's midpoint, which read
+     as a mistake rather than a deliberate cover. */
+  .cover { padding-top: 70mm; }
   .cover h1 { font-size: 32pt; }
   .cover .sub { font-size: 14pt; margin-bottom: 14mm; }
   .cover ul { list-style: none; padding-left: 0; margin: 0; }
