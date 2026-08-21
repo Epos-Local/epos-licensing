@@ -20,9 +20,9 @@ export default function DocsIndexPage() {
       <h1 className="vbg-title">Guides</h1>
 
       <p className="vbg-lede vbg-span-7">
-        Written for whoever is standing at the till, not for whoever installed
-        it. No sign-in needed, so these can be opened straight from the till or
-        sent to a shop as a link.
+        Step-by-step guides for everyday till use, not the install process.
+        No sign-in required — open them directly on the till or send the link
+        to a shop.
       </p>
 
       <div className="vbg-table-wrap vbg-span-12">
