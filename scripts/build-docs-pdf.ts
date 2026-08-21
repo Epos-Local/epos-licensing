@@ -122,6 +122,15 @@ const STYLE = `
      the table already says what it is, so it would only repeat itself. */
   caption { display: none; }
   .foot { margin-top: 8mm; padding-top: 2mm; border-top: 1px solid #d5d5d5; color: #6a6a6a; font-size: 8.5pt; }
+  /* Full-manual cover page only (see renderCover). Centered on the page rather
+     than top-aligned like every other page, since it has nothing else on it
+     to sit above. */
+  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 250mm; }
+  .cover h1 { font-size: 32pt; }
+  .cover .sub { font-size: 14pt; margin-bottom: 14mm; }
+  .cover ul { list-style: none; padding-left: 0; margin: 0; }
+  .cover li { font-size: 11.5pt; padding: 2.5mm 0; border-top: 1px solid #d5d5d5; }
+  .cover li:last-child { border-bottom: 1px solid #d5d5d5; }
 `;
 
 // A heading and the block under it go inside one keep-together box. CSS
@@ -160,11 +169,25 @@ ${renderGuideBody(guide)}
 </html>`;
 }
 
-/** Every guide back to back, each starting on its own page, as one manual. */
+/**
+ * A cover page naming the document, so opening it cold does not start on
+ * whichever guide happens to be first (it used to read "Sandbox sales" with
+ * nothing above it saying this was the manual).
+ */
+function renderCover(guides: Guide[]): string {
+  const contents = guides.map((guide) => `<li>${escapeHtml(guide.title)}</li>`).join("");
+  return `<section class="cover">
+<h1>EPos 365</h1>
+<p class="sub">Full documentation</p>
+<ul>${contents}</ul>
+</section>`;
+}
+
+/** A cover page naming the manual, then every guide back to back, each starting on its own page. */
 function renderFullManual(guides: Guide[]): string {
   const body = guides
     .map(
-      (guide, index) => `<section class="guide${index > 0 ? " page-break" : ""}">
+      (guide) => `<section class="guide page-break">
 <h1>${escapeHtml(guide.title)}</h1>
 <p class="sub">${escapeHtml(guide.lede)}</p>
 ${renderGuideBody(guide)}
@@ -180,6 +203,7 @@ ${renderGuideBody(guide)}
 <style>${STYLE}</style>
 </head>
 <body>
+${renderCover(guides)}
 ${body}
 <div class="foot">EPos 365, full documentation.</div>
 </body>
