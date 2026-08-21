@@ -7,6 +7,8 @@ import { type Guide } from "./types";
  * A credit payment collected here also cannot be told apart from an ordinary
  * tender on the End of day report (EndOfDayReportBinder's credit-payments
  * table is always empty), so that limitation is worth stating plainly.
+ * Manual mode's unpaid-sales list has to be loaded explicitly (a reload
+ * button) after switching to it; it does not populate on its own.
  */
 export const creditPayments: Guide = {
   slug: "credit-payments",
@@ -41,7 +43,11 @@ export const creditPayments: Guide = {
         },
         {
           kind: "p",
-          text: "Automatic applies the payment to their oldest unpaid sales first. Manual lets you tick specific sales to pay off instead, if a customer wants to settle one invoice rather than the balance as a whole. Either way, a sale is only marked paid once its full amount is covered.",
+          text: "Automatic applies the payment to their oldest unpaid sales first. Manual lets you tick specific sales to pay off instead, if a customer wants to settle one invoice rather than the balance as a whole, but switching to Manual does not load their sales on its own: press the reload button first, or the list sits empty with nothing to tick.",
+        },
+        {
+          kind: "p",
+          text: "Either way, a sale is only marked paid once its full amount is covered.",
         },
         {
           kind: "p",

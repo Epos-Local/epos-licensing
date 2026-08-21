@@ -5,7 +5,11 @@ import { type Guide } from "./types";
  * creating a station's name and assigning it a printer are two separate
  * screens, a station wins on its own product assignment over its category's,
  * and there is deliberately no fallback printer for a misconfigured station
- * (matching Aronium's own behaviour), with only a warning badge in Settings.
+ * (matching Aronium's own behaviour), with only a warning badge in Settings
+ * (a red circle with "!", tooltip "No printer assigned - items routed to
+ * this station won't print until one is chosen"). Each station's printer has
+ * its own full settings panel (gear icon), the same kind covered in the
+ * Printer setup guide, including its own Print test page button.
  */
 export const printStations: Guide = {
   slug: "print-stations",
@@ -44,6 +48,10 @@ export const printStations: Guide = {
           kind: "p",
           text: "A station created but never given a printer looks finished on the Management screen. It is not: nothing routed to it will print until a printer is chosen for it in Settings.",
         },
+        {
+          kind: "p",
+          text: "Once a station has a printer, a gear icon next to it opens the same kind of settings panel a receipt or kitchen printer gets: paper size, header and footer text, and a Print test page button to check it before relying on it. See the Printer setup guide for what each of those does.",
+        },
       ],
     },
     {
@@ -68,7 +76,7 @@ export const printStations: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "In Settings -> Print -> Print stations, a station missing its printer shows a red badge next to it. That is the only warning you get: a station in this state does not fall back to any other printer, it simply drops whatever is routed to it.",
+          text: "In Settings -> Print -> Print stations, a station missing its printer shows a small red warning mark next to it, saying it won't print until a printer is chosen. That is the only warning you get: a station in this state does not fall back to any other printer, it simply drops whatever is routed to it.",
         },
         {
           kind: "p",

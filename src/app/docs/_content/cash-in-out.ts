@@ -1,10 +1,12 @@
 import { type Guide } from "./types";
 
 /**
- * Sourced from CashInOutViewModel/CashEntryRepository: Save only requires
- * Amount > 0, there is no cap and no check against what is physically in the
- * drawer, and entries feed End of day's expected-cash figure until a close
- * sweeps them (ZReportId stamped) rather than being scoped by date.
+ * Sourced from CashInOutViewModel/CashEntryRepository: Save requires
+ * Amount > 0 (zero and negative are blocked, just no upper cap and no check
+ * against what is physically in the drawer), entries feed End of day's
+ * expected-cash figure until a close sweeps them (ZReportId stamped) rather
+ * than being scoped by date, and a separate Cash drawer button on the same
+ * screen pops the drawer directly, unrelated to logging an entry.
  */
 export const cashInOut: Guide = {
   slug: "cash-in-out",
@@ -39,11 +41,15 @@ export const cashInOut: Guide = {
         },
         {
           kind: "p",
-          text: "There is no limit on the amount and nothing checks it against what is actually in the drawer, so a cash-out can be recorded for more than the till holds. The screen keeps whichever direction you last used selected, since a run of entries in the same direction is the common case.",
+          text: "The amount has to be more than zero, but there is no upper limit and nothing checks it against what is actually in the drawer, so a cash-out can be recorded for more than the till holds. The screen keeps whichever direction you last used selected, since a run of entries in the same direction is the common case.",
         },
         {
           kind: "p",
           text: "Today's entries are listed underneath as you go, newest first, each showing who recorded it and when.",
+        },
+        {
+          kind: "p",
+          text: "A separate Cash drawer button on this screen just pops the drawer open. It does not log anything and has nothing to do with Add cash or Remove cash.",
         },
       ],
     },

@@ -1,11 +1,16 @@
 import { type Guide } from "./types";
 
 /**
- * Sourced from EndOfDayService/EndOfDayViewModel: closing sweeps every open
+ * Sourced from EndOfDayViewModel/EndOfDayService: closing sweeps every open
  * Payments/CashEntries row for the terminal by stamping a ZReportId, expected
  * cash is computed (not typed), a short count asks for confirmation but does
- * not block, and "Print selected report" in History is a real reprint, not a
- * stub (despite an older note in this project's CLAUDE.md).
+ * not block, "Print selected report" in History is a real reprint (despite an
+ * older note in this project's CLAUDE.md), the open-orders check runs for all
+ * three tiles (not only Close register), the shared-drawer notice is an
+ * informational banner rather than a gate on Continue, closing itself shows
+ * only a message box with no Report button (the report is printed afterward
+ * from History), and X REPORT is a separate always-visible tile that prints a
+ * live snapshot at any time without closing anything.
  */
 export const endOfDay: Guide = {
   slug: "end-of-day",
@@ -32,11 +37,24 @@ export const endOfDay: Guide = {
       ],
     },
     {
+      heading: "A quick totals check, without closing anything",
+      blocks: [
+        {
+          kind: "p",
+          text: "The X REPORT button on this screen prints a snapshot of today's totals so far. It does not close the register or affect anything, so it can be used any time you just want to see where things stand.",
+        },
+      ],
+    },
+    {
       heading: "Counting the cash",
       blocks: [
         {
           kind: "p",
           text: "Choose Cash out (yourself), Cash out all users, or Close register. The till already works out how much cash it expects in the drawer from sales, cash paid in and cash paid out. Type what you actually counted and it shows you the difference.",
+        },
+        {
+          kind: "p",
+          text: "Choosing Close register also shows a breakdown of open transactions and each user's own totals, so you can see where the day's figure comes from before going ahead.",
         },
         {
           kind: "ul",
@@ -50,15 +68,15 @@ export const endOfDay: Guide = {
       ],
     },
     {
-      heading: "Before you can close",
+      heading: "Before you can continue",
       blocks: [
         {
           kind: "p",
-          text: "Any order left open (parked, not yet paid) blocks Close register until it is finished or cancelled.",
+          text: "Any order left open (parked, not yet paid) blocks all three options, Cash out, Cash out all users and Close register, until it is finished or cancelled.",
         },
         {
           kind: "p",
-          text: "If you are closing only your own cash and a colleague still has sales sitting in the same drawer, you will see a warning about the shared drawer before you can continue.",
+          text: "If you are closing only your own cash and a colleague still has sales sitting in the same drawer, a notice tells you so. It is there to make sure you know, not something you need to clear before continuing.",
         },
       ],
     },
@@ -67,11 +85,11 @@ export const endOfDay: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "You get a Z-report number straight away, with a Report button to print it on the spot.",
+          text: "Closing shows a confirmation with the Z-report number and then closes the screen. There is no print button on that confirmation itself.",
         },
         {
           kind: "p",
-          text: "Past reports live under the History tab of the same screen. Pick one and Print selected report reprints it in full, any time.",
+          text: "To print it, switch to the History tab of the same screen, find it in the list, and choose Print selected report. That works for any past report, any time, not just the one you just closed.",
         },
         {
           kind: "p",

@@ -9,7 +9,10 @@ import { type Guide } from "./types";
  * immediately and only then shows a report, not a preview beforehand. The
  * Aronium .db importer (AroniumImporter) has no menu or button anywhere in
  * Pos.App; it is only ever invoked from the dev harness, so it is described
- * here as a one-off done for the shop, not a self-service screen.
+ * here as a one-off done for the shop, not a self-service screen. A separate
+ * "Import groups" button next to Import/Export takes its own, differently
+ * shaped file (parent-and-child group names) and can build a nested group
+ * tree, which the product file's own Group column cannot do on its own.
  */
 export const productImport: Guide = {
   slug: "product-import",

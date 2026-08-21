@@ -1,12 +1,16 @@
 import { type Guide } from "./types";
 
 /**
- * Sourced from ScheduledReportEmailService/EmailReportScheduler: recipients
- * are one shared list for every report type (not per-report), periodic sends
- * only run while the app itself is open (an in-process timer, not a Windows
- * service), a failed periodic send is silent and simply retried next minute,
- * and "Send if empty" off means a quiet period sends nothing at all rather
- * than an empty report, which is easy to mistake for a broken setup.
+ * Sourced from ScheduledReportEmailService/EmailReportScheduler/
+ * SettingsViewModel: recipients are one shared list for every report type
+ * (not per-report), periodic sends only run while the app itself is open (an
+ * in-process timer, not a Windows service), a failed periodic send is silent
+ * and simply retried next minute, "Send if empty" off means a quiet period
+ * sends nothing at all rather than an empty report, the attachment formats
+ * are PDF and Excel (there is no CSV option), and Email -> General also has
+ * a Bcc field plus default Subject/Message text used as a fallback for
+ * customer-facing emails, separate from Reporting's own Subject/Message pair
+ * used for the scheduled report emails specifically.
  */
 export const emailReports: Guide = {
   slug: "email-reports",
@@ -23,6 +27,10 @@ export const emailReports: Guide = {
         },
         {
           kind: "p",
+          text: "The same screen has a Bcc field for anyone who should quietly get a copy of every email the till sends, and default Subject and Message text used to fill in customer-facing emails, such as a receipt, when nothing more specific has been set for them.",
+        },
+        {
+          kind: "p",
           text: "Send test email saves what you have entered and sends a message to that same address, so you can check it works before relying on it.",
         },
       ],
@@ -32,7 +40,7 @@ export const emailReports: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Settings -> Email -> Reporting has a Report selection list covering most of the reports on the till: daily sales, best sellers, stock movement and more. Tick whichever ones you want emailed.",
+          text: "Settings -> Email -> Reporting has a Report selection list covering most of the reports on the till: daily sales, best sellers, stock movement and more. Tick whichever ones you want emailed. Its own Subject and Message fields here are just for these scheduled report emails, separate from the general ones on the previous screen.",
         },
         {
           kind: "p",
@@ -40,7 +48,7 @@ export const emailReports: Guide = {
         },
         {
           kind: "p",
-          text: "Reports go out as PDF, CSV, or both, whichever you tick. There is no plain summary in the body of the email itself; the reports are always attachments.",
+          text: "Reports go out as PDF, Excel, or both, whichever you tick. There is no plain summary in the body of the email itself; the reports are always attachments.",
         },
       ],
     },

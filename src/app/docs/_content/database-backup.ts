@@ -38,7 +38,7 @@ export const databaseBackup: Guide = {
         },
         {
           kind: "p",
-          text: "If you set your own backup folder, you can also turn on Delete old backups automatically and say how many days to keep them for, so the folder does not grow forever.",
+          text: "Delete old backups automatically only works if you have set your own backup folder. Leave the location at its default and old backups are kept forever; set your own folder and you can also say how many days to keep them for, so it does not grow forever.",
         },
         {
           kind: "p",

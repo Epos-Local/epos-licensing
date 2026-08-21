@@ -1,18 +1,26 @@
 import { type Guide } from "./types";
 
 /**
- * Sourced from UserEditViewModel/SecurityKey/User: access level is a number
- * (Staff 10, Manager 50, Administrator 100) with the Staff/Manager/
- * Administrator buttons just presets onto it, a user can never grant a level
- * above their own, PINs are globally unique since sign-in is PIN-only with no
- * username, and sandbox mode's Manager gate is hardcoded rather than a
- * SecurityKey row, so it deliberately will not appear on the Security tab.
+ * Sourced from UserEditViewModel/SecurityKey/User/ManagementViewModel: access
+ * level is a number (Staff 10, Manager 50, Administrator 100) with the Staff/
+ * Manager/Administrator buttons just presets onto it, a user can never grant
+ * a level above their own, PINs are globally unique since sign-in is PIN-only
+ * with no username, and sandbox mode's Manager gate is hardcoded rather than
+ * a SecurityKey row. The level each action needs is itself editable on the
+ * Security sub-tab (steppers per action, not fixed). Administering a peer at
+ * the SAME level (edit, delete, reset PIN) is blocked unless the acting user
+ * holds the shop's single top rank (ManagementViewModel.CanAdministerAsync).
+ * Deactivating a user has no open-orders guard; that guard exists only on
+ * hard delete, which the earlier draft had backwards. Staff hours is a third,
+ * separate Manager-gated tab (clock-in/out sessions with correction), and the
+ * user editor also has an hourly pay rate with an effective-from date and a
+ * history of past rates, neither mentioned before.
  */
 export const usersAndPermissions: Guide = {
   slug: "users-and-permissions",
   title: "Users and permissions",
   lede: "Give each member of staff their own PIN, and decide what it lets them do.",
-  summary: "Setting up staff logins, PIN resets, and what each access level unlocks.",
+  summary: "Setting up staff logins, PIN resets, pay rates, and what each access level unlocks.",
   sections: [
     {
       heading: "Change the default PIN first",
@@ -34,6 +42,10 @@ export const usersAndPermissions: Guide = {
           kind: "p",
           text: "Signing in is PIN only, with no separate username, so every PIN on the till has to be different from every other one. Trying to save a PIN already in use will be rejected.",
         },
+        {
+          kind: "p",
+          text: "The same screen has an hourly pay rate, with a date it takes effect from and a note if you want one. Change it later and the old rate is kept in a short history underneath, rather than being written over.",
+        },
       ],
     },
     {
@@ -45,7 +57,7 @@ export const usersAndPermissions: Guide = {
         },
         {
           kind: "table",
-          caption: "Examples of what each level gates",
+          caption: "Examples of what each level gates, out of the box",
           head: ["Action", "Needs at least"],
           rows: [
             ["Voiding an order", "Manager"],
@@ -56,7 +68,15 @@ export const usersAndPermissions: Guide = {
         },
         {
           kind: "p",
+          text: "These are starting points, not fixed. Management -> Users & security -> Security lets you raise or lower the level each action needs, one by one, if the defaults do not suit how your shop runs.",
+        },
+        {
+          kind: "p",
           text: "You cannot hand out more than you hold yourself: a Manager setting up a new user cannot make them an Administrator, only an Administrator can create another Administrator.",
+        },
+        {
+          kind: "p",
+          text: "Two people at the same level cannot edit each other, delete each other, or reset each other's PIN. Only whoever holds the single highest level in the shop can administer someone else at their own level.",
         },
       ],
     },
@@ -74,13 +94,22 @@ export const usersAndPermissions: Guide = {
       ],
     },
     {
+      heading: "Staff hours",
+      blocks: [
+        {
+          kind: "p",
+          text: "Management -> Staff hours, next to Users & security, shows every clock-in and clock-out on the till and lets a manager correct one that was missed or wrong. It needs the same Manager level or above as the rest of this section.",
+        },
+      ],
+    },
+    {
       heading: "Worth knowing",
       blocks: [
         {
           kind: "ul",
           items: [
-            "A user with open orders cannot be deactivated until those orders are finished or cancelled.",
-            "Sandbox mode is deliberately not something you can grant or take away here; it always needs Manager level or above, fixed in the till itself.",
+            "Deactivating a user works even if they have orders in their history; there is nothing to clear first. Deleting a user outright is the one that is blocked while they have orders on file, and deactivating is the usual way to retire an account instead.",
+            "Sandbox mode is deliberately not something you can grant or take away here; it always needs Manager level or above, fixed in the till itself, unlike the other actions in the table above.",
           ],
         },
       ],
