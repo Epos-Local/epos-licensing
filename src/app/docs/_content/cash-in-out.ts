@@ -19,7 +19,7 @@ export const cashInOut: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Cash In / Out is a running log of cash movements that are not a sale or a refund: putting a float in at the start of the day, taking notes to the safe, that kind of thing. It does not close the register or start a shift, so it can be used as often as needed through the day.",
+          text: "Cash In / Out logs cash movements that are not a sale or a refund. Think a float top-up at the start of the day, or notes going to the safe. It does not close the register or start a shift, so use it as often as you need through the day.",
         },
       ],
     },
@@ -28,7 +28,7 @@ export const cashInOut: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Open the hamburger menu and choose Cash In / Out. You will need a PIN with access to it if you are not already signed in as one.",
+          text: "Open the hamburger menu and choose Cash In / Out. If you are not already signed in as one, enter a PIN with access to it.",
         },
       ],
     },
@@ -37,19 +37,19 @@ export const cashInOut: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Pick Add cash or Remove cash, type the amount, and add a note if you want one. The note is free text: there are no preset reasons, so what shows up later in reports depends entirely on what was typed here.",
+          text: "Pick Add cash or Remove cash, type the amount, and add a note if you want one. The note is free text; there are no preset reasons. So what shows up later in reports depends entirely on what you type here.",
         },
         {
           kind: "p",
-          text: "The amount has to be more than zero, but there is no upper limit and nothing checks it against what is actually in the drawer, so a cash-out can be recorded for more than the till holds. The screen keeps whichever direction you last used selected, since a run of entries in the same direction is the common case.",
+          text: "The amount has to be more than zero. Beyond that there is no upper limit, and nothing checks it against what is actually in the drawer, so you can record a cash-out for more than the till holds. The screen keeps whichever direction you used last, since entries usually come in runs.",
         },
         {
           kind: "p",
-          text: "Today's entries are listed underneath as you go, newest first, each showing who recorded it and when.",
+          text: "Today's entries are listed below, newest first, each showing who recorded it and when.",
         },
         {
           kind: "p",
-          text: "A separate Cash drawer button on this screen just pops the drawer open. It does not log anything and has nothing to do with Add cash or Remove cash.",
+          text: "A separate Cash drawer button just pops the drawer open. It logs nothing, and has nothing to do with Add cash or Remove cash.",
         },
       ],
     },
@@ -58,11 +58,11 @@ export const cashInOut: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Every open entry counts towards the expected cash figure shown when closing the register: takings plus cash in, minus cash out. Closing sweeps everything that is still open into that Z-report, and from then on it no longer affects the running total.",
+          text: "Every open entry counts towards the expected cash figure at close: takings plus cash in, minus cash out. Closing sweeps everything still open into that Z-report, and from then on it stops affecting the running total.",
         },
         {
           kind: "p",
-          text: "Because entries are swept by being open rather than by date, a register left open past midnight simply carries its cash-in and cash-out figures into the next day rather than resetting.",
+          text: "Entries get swept by being open, not by date. So a register left open past midnight simply carries its cash-in and cash-out figures into the next day instead of resetting.",
         },
       ],
     },
@@ -72,9 +72,9 @@ export const cashInOut: Guide = {
         {
           kind: "ul",
           items: [
-            "This is one drawer for the whole till, not one per user: everyone's entries feed the same running total.",
-            "Any authorized user can remove any amount with just a note, or no note at all. Keeping this permission to trusted staff is the only real control there is.",
-            "There is no printed receipt for a single entry. The figures appear on the End of day report instead.",
+            "It is one drawer for the whole till, not one per user. Everyone's entries feed the same running total.",
+            "Any authorized user can remove any amount with just a note, or no note at all. Keeping this permission to trusted staff is the only real control you have.",
+            "There is no printed receipt for a single entry. The figures show up on the End of day report instead.",
           ],
         },
       ],

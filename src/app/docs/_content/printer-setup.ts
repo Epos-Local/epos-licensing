@@ -24,7 +24,7 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "The printer has to already be installed in Windows before it will show up here. Plug it in and install its driver first; Settings -> Print picks from whatever Windows already knows about.",
+          text: "Install the printer in Windows before it will show up here. Plug it in and install its driver first. Settings -> Print picks from whatever Windows already knows about.",
         },
       ],
     },
@@ -33,15 +33,15 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Settings -> Print has three sub-tabs: Printer selection, Print stations and Customize receipt. This guide covers the first and third; Print stations, for routing kitchen and bar tickets to different printers, has its own guide.",
+          text: "Settings -> Print has three sub-tabs: Printer selection, Print stations and Customize receipt. This guide covers the first and third. Print stations, for routing kitchen and bar tickets to different printers, has its own guide.",
         },
         {
           kind: "p",
-          text: "Printer selection has three rows: Print receipt, Print kitchen ticket and Print invoice. Each gets its own printer from the dropdown, so they do not have to be the same machine. A red mark next to a row means nothing is chosen for it yet.",
+          text: "Printer selection has three rows: Print receipt, Print kitchen ticket and Print invoice. Each gets its own printer from the dropdown, so they do not have to be the same machine. A red mark next to a row means nothing is chosen yet.",
         },
         {
           kind: "p",
-          text: "Once a printer is picked, a gear icon opens its settings: printer type, paper size, header and footer text, number of copies, and the cash drawer.",
+          text: "Pick a printer, then click its gear icon to open the settings: printer type, paper size, header and footer text, number of copies, and the cash drawer.",
         },
       ],
     },
@@ -50,15 +50,15 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Windows printer is for anything with a proper Windows driver. It gets nicer formatting and lets you choose a paper size of 58mm, 80mm or A4. Your logo prints on it automatically, with nothing to turn on.",
+          text: "Windows printer suits anything with a proper Windows driver. It gets nicer formatting and lets you choose a paper size of 58mm, 80mm or A4. Your logo prints automatically, nothing to turn on.",
         },
         {
           kind: "p",
-          text: "Generic / Text only is for a basic thermal printer with no real driver behind it. It sends plain text instead, sized by characters per line rather than a paper size. A shop only ever needs one of the two settings, and switching printer type is what decides which one you see.",
+          text: "Generic / Text only suits a basic thermal printer with no real driver. It sends plain text instead, sized by characters per line rather than a paper size. A shop only ever needs one of the two; switching printer type decides which settings you see.",
         },
         {
           kind: "p",
-          text: "A Print logo switch appears only for a Generic printer, but right now it does not do anything: that kind of printer has no way to print an image yet, switch on or off.",
+          text: "A Print logo switch appears only for a Generic printer, but right now it does nothing. That kind of printer cannot print an image yet, switch on or off.",
         },
       ],
     },
@@ -67,7 +67,7 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Print test page, in the same panel, sends a real print with whatever settings you currently have, so you can check them before trusting it to a customer.",
+          text: "Click Print test page, in the same panel, to send a real print with your current settings. Check it before trusting it to a customer.",
         },
       ],
     },
@@ -76,7 +76,7 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Turn on Open cash drawer on a printer and it pops the drawer every time that printer prints. The exact code that does this differs by printer, so use Find my command: pick your printer's make and model and try each code it offers until the drawer actually opens, then save that one.",
+          text: "Turn on Open cash drawer on a printer and it pops the drawer every time that printer prints. The exact code differs by printer, so use Find my command: pick your printer's make and model, try each code it offers until the drawer opens, then save that one.",
         },
       ],
     },
@@ -85,7 +85,7 @@ export const printerSetup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "An Advanced tab in the same panel has further options: cutting the paper automatically, how many blank lines to feed before it cuts, the character set, and, for a Windows printer on roll paper, printable margins. A receipt printer also has its own barcode option there. Most shops can leave these at their defaults.",
+          text: "An Advanced tab in the same panel holds further options: cutting the paper automatically, how many blank lines to feed before it cuts, the character set, and, for a Windows printer on roll paper, printable margins. A receipt printer also gets its own barcode option there. Most shops can leave these at their defaults.",
         },
       ],
     },
@@ -98,7 +98,7 @@ export const printerSetup: Guide = {
         },
         {
           kind: "p",
-          text: "Your shop's own name, address and logo are set separately, under Management -> My company.",
+          text: "Your shop's own name, address and logo live separately, under Management -> My company.",
         },
       ],
     },

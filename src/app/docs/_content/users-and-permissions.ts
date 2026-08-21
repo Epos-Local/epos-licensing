@@ -27,7 +27,7 @@ export const usersAndPermissions: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "A new till starts with one Admin user and PIN `1234`. Change it before the till goes live: Management -> Users & security -> Users, edit Admin, set a new PIN.",
+          text: "A new till starts with one Admin user and PIN `1234`. Change it before the till goes live. Go to Management -> Users & security -> Users, edit Admin, and set a new PIN.",
         },
       ],
     },
@@ -36,15 +36,15 @@ export const usersAndPermissions: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Management -> Users & security -> Users -> add a user. Give them a name and a PIN, and pick Staff, Manager or Administrator, which fills in an access level for you. You will not see that number on the screen day to day, but it is what everything else in this section checks against.",
+          text: "Go to Management -> Users & security -> Users and add a user. Give them a name and a PIN, then pick Staff, Manager or Administrator. That fills in an access level for you. You will not see the number day to day, but everything else in this section checks against it.",
         },
         {
           kind: "p",
-          text: "Signing in is PIN only, with no separate username, so every PIN on the till has to be different from every other one. Trying to save a PIN already in use will be rejected.",
+          text: "Signing in is PIN only, with no separate username. So every PIN on the till has to be different from every other one. The till rejects a PIN already in use.",
         },
         {
           kind: "p",
-          text: "The same screen has an hourly pay rate, with a date it takes effect from and a note if you want one. Change it later and the old rate is kept in a short history underneath, rather than being written over.",
+          text: "The same screen sets an hourly pay rate, with a date it takes effect from and an optional note. Change it later and the old rate stays in a short history underneath, rather than getting overwritten.",
         },
       ],
     },
@@ -53,7 +53,7 @@ export const usersAndPermissions: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Higher numbers can do more, and include everything a lower level can. A Manager can do anything a Staff member can, and an Administrator can do anything a Manager can.",
+          text: "Higher numbers can do more, and include everything a lower level can. A Manager can do anything a Staff member can. An Administrator can do anything a Manager can.",
         },
         {
           kind: "table",
@@ -68,15 +68,15 @@ export const usersAndPermissions: Guide = {
         },
         {
           kind: "p",
-          text: "These are starting points, not fixed. Management -> Users & security -> Security lets you raise or lower the level each action needs, one by one, if the defaults do not suit how your shop runs.",
+          text: "These are starting points, not fixed rules. Go to Management -> Users & security -> Security to raise or lower the level each action needs, one by one, if the defaults do not suit your shop.",
         },
         {
           kind: "p",
-          text: "You cannot hand out more than you hold yourself: a Manager setting up a new user cannot make them an Administrator, only an Administrator can create another Administrator.",
+          text: "You cannot hand out more than you hold yourself. A Manager setting up a new user cannot make them an Administrator; only an Administrator can create another Administrator.",
         },
         {
           kind: "p",
-          text: "Two people at the same level cannot edit each other, delete each other, or reset each other's PIN. Only whoever holds the single highest level in the shop can administer someone else at their own level.",
+          text: "Two people at the same level cannot edit each other, delete each other, or reset each other's PIN. Only whoever holds the single highest level in the shop can administer a peer at that same level.",
         },
       ],
     },
@@ -85,11 +85,11 @@ export const usersAndPermissions: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Management -> Staff passwords is the quick path: pick the user and set a new PIN, no old one needed. It only changes PINs, so use Users & security if you also need to change someone's access level.",
+          text: "Go to Management -> Staff passwords for the quick path: pick the user and set a new PIN, no old one needed. It only changes PINs, so use Users & security instead if you also need to change someone's access level.",
         },
         {
           kind: "p",
-          text: "There is no remote or self-service reset. If every Manager and Administrator PIN on a till is lost at once, the only way back in is through support, quoting the till's reference shown on the sign-in screen.",
+          text: "There is no remote or self-service reset. If every Manager and Administrator PIN on a till is lost at once, contact support and quote the till's reference shown on the sign-in screen.",
         },
       ],
     },
@@ -98,7 +98,7 @@ export const usersAndPermissions: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Management -> Staff hours, next to Users & security, shows every clock-in and clock-out on the till and lets a manager correct one that was missed or wrong. It needs the same Manager level or above as the rest of this section.",
+          text: "Go to Management -> Staff hours, next to Users & security, to see every clock-in and clock-out on the till. A manager can correct one that was missed or wrong here. It needs the same Manager level or above as the rest of this section.",
         },
       ],
     },
@@ -108,8 +108,8 @@ export const usersAndPermissions: Guide = {
         {
           kind: "ul",
           items: [
-            "Deactivating a user works even if they have orders in their history; there is nothing to clear first. Deleting a user outright is the one that is blocked while they have orders on file, and deactivating is the usual way to retire an account instead.",
-            "Sandbox mode is deliberately not something you can grant or take away here; it always needs Manager level or above, fixed in the till itself, unlike the other actions in the table above.",
+            "Deactivating a user works even with orders in their history; there is nothing to clear first. Deleting a user outright is the one blocked while they have orders on file. Deactivating is the usual way to retire an account instead.",
+            "Sandbox mode is deliberately not something you can grant or take away here. It always needs Manager level or above, fixed in the till itself, unlike the other actions in the table above.",
           ],
         },
       ],

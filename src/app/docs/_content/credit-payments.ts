@@ -21,7 +21,7 @@ export const creditPayments: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "There is no separate credit flow at checkout. A sale is tendered with On account like any other payment type, and because that type is not marked as paid, the sale sits unpaid against the customer until it is settled.",
+          text: "There is no separate credit flow at checkout. Tender a sale with On account like any other payment type. That type is not marked as paid, so the sale sits unpaid against the customer until it is settled.",
         },
       ],
     },
@@ -30,7 +30,7 @@ export const creditPayments: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Open the hamburger menu and choose Credit payments. You will need a PIN with access to it if you are not already signed in as one.",
+          text: "Open the hamburger menu and choose Credit payments. If you are not already signed in as one, enter a PIN with access to it.",
         },
       ],
     },
@@ -39,19 +39,19 @@ export const creditPayments: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Search for the customer and their balance appears, added up from everything of theirs still unpaid. Pick a real payment type for what they are actually handing over, Cash by default, and type the amount.",
+          text: "Search for the customer. Their balance appears, added up from everything of theirs still unpaid. Pick a real payment type for what they are actually handing over, Cash by default, and type the amount.",
         },
         {
           kind: "p",
-          text: "Automatic applies the payment to their oldest unpaid sales first. Manual lets you tick specific sales to pay off instead, if a customer wants to settle one invoice rather than the balance as a whole, but switching to Manual does not load their sales on its own: press the reload button first, or the list sits empty with nothing to tick.",
+          text: "Automatic applies the payment to their oldest unpaid sales first. Manual lets you tick specific sales to pay off instead, if a customer wants to settle one invoice rather than the whole balance.",
         },
         {
           kind: "p",
-          text: "Either way, a sale is only marked paid once its full amount is covered.",
+          text: "Switching to Manual does not load their sales on its own. Press the reload button first, or the list sits empty with nothing to tick.",
         },
         {
           kind: "p",
-          text: "You cannot take more than the customer actually owes; the screen will not let you.",
+          text: "Either way, a sale is only marked paid once its full amount is covered. And you cannot take more than the customer actually owes; the screen will not let you.",
         },
       ],
     },
@@ -62,8 +62,8 @@ export const creditPayments: Guide = {
           kind: "ul",
           items: [
             "A credit limit can be set on a customer's record, but nothing on the till stops a sale going through past it. It is a note for staff, not a block.",
-            "On account is just another button at the payment screen, so it is easy for a cashier to tap it by mistake on what should have been a cash sale.",
-            "A payment taken here shows up on the End of day report mixed into whatever payment type was chosen for it, not as its own line. There is currently no way to see, from that report alone, how much of today's cash was a fresh sale versus an old debt being paid off.",
+            "On account is just another button at the payment screen, so a cashier can tap it by mistake on what should have been a cash sale.",
+            "A payment taken here shows up on the End of day report mixed into whatever payment type was chosen for it, not as its own line. That report alone cannot tell you how much of today's cash was a fresh sale versus an old debt being paid off.",
           ],
         },
       ],

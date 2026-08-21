@@ -25,7 +25,7 @@ export const databaseBackup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Settings -> Database -> Backup database, and choose where to save it. It is a single file, everything the till holds in one place.",
+          text: "Go to Settings -> Database -> Backup database and choose where to save it. It is a single file, everything the till holds in one place.",
         },
       ],
     },
@@ -34,15 +34,15 @@ export const databaseBackup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Turn on Automatic backups in the same screen, and choose when: on every start, on every close, every so many hours, or any mix of the three. Leave the backup location blank and it saves next to the database itself, in a Backup folder.",
+          text: "Turn on Automatic backups in the same screen and choose when: on every start, on every close, every so many hours, or any mix of the three. Leave the backup location blank and it saves next to the database itself, in a Backup folder.",
         },
         {
           kind: "p",
-          text: "Delete old backups automatically only works if you have set your own backup folder. Leave the location at its default and old backups are kept forever; set your own folder and you can also say how many days to keep them for, so it does not grow forever.",
+          text: "Delete old backups automatically only works with your own backup folder set. Leave the location at its default and old backups are kept forever. Set your own folder instead, and you can also say how many days to keep them for.",
         },
         {
           kind: "p",
-          text: "There is no reminder if backups stop happening. If a folder gets deleted or a drive goes missing, nothing on screen will tell you.",
+          text: "There is no reminder if backups stop happening. If a folder gets deleted or a drive goes missing, nothing on screen tells you.",
         },
       ],
     },
@@ -51,11 +51,11 @@ export const databaseBackup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Settings -> Database -> Import database, and pick the backup file. You will be warned that this replaces everything on the till, sales, products and settings included, before it goes ahead.",
+          text: "Go to Settings -> Database -> Import database and pick the backup file. You get a warning first: this replaces everything on the till, sales, products and settings included.",
         },
         {
           kind: "p",
-          text: "The till closes itself once the import finishes, and needs opening again afterward.",
+          text: "The till closes itself once the import finishes. Open it again afterward.",
         },
         {
           kind: "p",
@@ -68,7 +68,7 @@ export const databaseBackup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "This is the normal way to set up a replacement till: import an existing backup onto it. The till's own identity, its terminal number and licence, are not carried over, so the new machine gets its own rather than clashing with the one the backup came from.",
+          text: "This is the normal way to set up a replacement till: import an existing backup onto it. The till's own identity, its terminal number and licence, does not carry over. The new machine gets its own instead of clashing with the one the backup came from.",
         },
       ],
     },
@@ -78,19 +78,19 @@ export const databaseBackup: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Import database is for replacing one till wholesale. If a shop instead runs two tills side by side and wants each one to pick up what happened on the other, use Export changes and Merge changes underneath it, on the same screen, instead. These add to a till rather than replacing it.",
+          text: "Import database replaces one till wholesale. If a shop runs two tills side by side and wants each to pick up what happened on the other, use Export changes and Merge changes instead, underneath it on the same screen. These add to a till rather than replacing it.",
         },
         {
           kind: "p",
-          text: "Export changes writes what has changed on this till to a file, meant for a USB stick. Take that file to the other till and use Merge changes there to bring it in. To keep both tills level, do this in both directions: export from each one and merge the other's file into it.",
+          text: "Export changes writes what has changed on this till to a file, meant for a USB stick. Take that file to the other till and use Merge changes there to bring it in. To keep both tills level, do this in both directions: export from each one, and merge the other's file into it.",
         },
         {
           kind: "p",
-          text: "If the same row was changed on both tills, the more recent edit wins and the older one is dropped, not kept anywhere for reference. A deletion only goes through if nothing on the receiving till still depends on that row, a sale of a since-discontinued product is the usual reason one is held back instead.",
+          text: "Change the same row on both tills, and the more recent edit wins; the older one gets dropped, not kept anywhere for reference. A deletion only goes through if nothing on the receiving till still depends on that row. A sale of a since-discontinued product is the usual reason one gets held back instead.",
         },
         {
           kind: "p",
-          text: "A merge either goes through in full or not at all. If something in the file cannot be applied, nothing on the till is changed, and you are told what went wrong rather than being left to guess.",
+          text: "A merge goes through in full, or not at all. If something in the file cannot be applied, nothing on the till changes, and you are told what went wrong rather than left to guess.",
         },
       ],
     },
@@ -100,7 +100,7 @@ export const databaseBackup: Guide = {
         {
           kind: "ul",
           items: [
-            "Import database only takes a .db file this app made. A file from a newer version of the app than what is installed will be rejected too.",
+            "Import database only takes a .db file this app made. It also rejects a file from a newer version of the app than what is installed.",
             "Restoring is a full replace, not a merge. Anything rung up since the backup was taken is gone once you import it.",
             "Export changes writes a .possync file, a different format entirely, and only Merge changes reads it back in. The two pairs, Backup/Import and Export/Merge, do not mix.",
             "Export changes and Import database are not the same thing, and picking the wrong one matters: import wipes out a till's own trading, merge only adds to it.",

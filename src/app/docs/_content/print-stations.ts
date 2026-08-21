@@ -22,11 +22,11 @@ export const printStations: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "A print station is a named destination, like Kitchen or Bar, with one printer attached to it. Route a product to a station and every time it is ordered, a ticket for just that station's items goes to that printer.",
+          text: "A print station is a named destination, like Kitchen or Bar, with one printer attached. Route a product to a station and every order for it prints a ticket for just that station, to that printer.",
         },
         {
           kind: "p",
-          text: "Anything not routed to a station falls back to the single Kitchen ticket printer set in Settings -> Print -> Printer selection.",
+          text: "Anything not routed to a station falls back to the single Kitchen ticket printer, set in Settings -> Print -> Printer selection.",
         },
       ],
     },
@@ -35,7 +35,7 @@ export const printStations: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "It is two steps, on two different screens.",
+          text: "It takes two steps, on two different screens.",
         },
         {
           kind: "ul",
@@ -46,11 +46,11 @@ export const printStations: Guide = {
         },
         {
           kind: "p",
-          text: "A station created but never given a printer looks finished on the Management screen. It is not: nothing routed to it will print until a printer is chosen for it in Settings.",
+          text: "A station created but never given a printer looks finished on the Management screen. It is not. Nothing routed to it will print until you choose a printer for it in Settings.",
         },
         {
           kind: "p",
-          text: "Once a station has a printer, a gear icon next to it opens the same kind of settings panel a receipt or kitchen printer gets: paper size, header and footer text, and a Print test page button to check it before relying on it. See the Printer setup guide for what each of those does.",
+          text: "Once a station has a printer, click the gear icon next to it. This opens the same settings panel a receipt or kitchen printer gets: paper size, header and footer text, and a Print test page button to check it before relying on it. See the Printer setup guide for what each setting does.",
         },
       ],
     },
@@ -59,15 +59,15 @@ export const printStations: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Open a product or a category and look for its Print stations tab. Pick a station there and every order for that item goes to it.",
+          text: "Open a product or a category and look for its Print stations tab. Pick a station there, and every order for that item goes to it.",
         },
         {
           kind: "p",
-          text: "Routing a category routes everything in it. A product can still be given its own station to override that, and its own choice always wins over the category's.",
+          text: "Routing a category routes everything in it. Give a product its own station and that choice wins over the category's.",
         },
         {
           kind: "p",
-          text: "An item can be sent to more than one station at once, if it needs a ticket in two places.",
+          text: "Send an item to more than one station at once, if it needs a ticket in two places.",
         },
       ],
     },
@@ -76,11 +76,11 @@ export const printStations: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "In Settings -> Print -> Print stations, a station missing its printer shows a small red warning mark next to it, saying it won't print until a printer is chosen. That is the only warning you get: a station in this state does not fall back to any other printer, it simply drops whatever is routed to it.",
+          text: "In Settings -> Print -> Print stations, a station missing its printer shows a small red warning mark, saying it won't print until you choose one. That is the only warning you get. A station in this state does not fall back to any other printer; it simply drops whatever is routed to it.",
         },
         {
           kind: "p",
-          text: "Check for that badge after any change to your printers or stations, before it costs you a lost order.",
+          text: "Check for that warning after any change to your printers or stations, before it costs you a lost order.",
         },
       ],
     },
@@ -90,7 +90,7 @@ export const printStations: Guide = {
         {
           kind: "ul",
           items: [
-            "Settings -> Print -> Customize receipt has a Kitchen item text size setting (Normal, Large, Extra large) that only affects kitchen tickets, not the customer's receipt.",
+            "Settings -> Print -> Customize receipt has a Kitchen item text size setting (Normal, Large, Extra large). It only affects kitchen tickets, not the customer's receipt.",
             "There is no reprint button for a kitchen ticket once it has gone to the printer.",
           ],
         },
