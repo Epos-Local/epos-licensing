@@ -6,13 +6,13 @@ import { type Guide } from "./types";
  * safe rather than creating duplicates; the preview-before-import step exists
  * in code but is currently switched off (ManagementViewModel.cs:4472-4489,
  * "parked until it has been tried on a real catalogue"), so Import writes
- * immediately and only then shows a report, not a preview beforehand. The
- * Aronium .db importer (AroniumImporter) has no menu or button anywhere in
- * Pos.App; it is only ever invoked from the dev harness, so it is described
- * here as a one-off done for the shop, not a self-service screen. A separate
- * "Import groups" button next to Import/Export takes its own, differently
- * shaped file (parent-and-child group names) and can build a nested group
- * tree, which the product file's own Group column cannot do on its own.
+ * immediately and only then shows a report, not a preview beforehand. A
+ * separate "Import groups" button next to Import/Export takes its own,
+ * differently shaped file (parent-and-child group names) and can build a
+ * nested group tree, which the product file's own Group column cannot do on
+ * its own. (Aronium migration is intentionally not covered here — it has no
+ * menu or button anywhere in Pos.App and is only ever run from the dev
+ * harness, so it isn't a self-service task this guide can walk through.)
  */
 export const productImport: Guide = {
   slug: "product-import",
@@ -70,15 +70,6 @@ export const productImport: Guide = {
         {
           kind: "p",
           text: "Leave the tax column blank and the product gets your default tax rate from Settings, falling back to a zero rate if there is not one.",
-        },
-      ],
-    },
-    {
-      heading: "Moving from Aronium",
-      blocks: [
-        {
-          kind: "p",
-          text: "Migrating an existing Aronium database, categories, products, barcodes, tax rates and payment types, is not something you do yourself from a screen. Sales history, layouts and users never move across either way. Ask support to do this for you rather than looking for it in Settings or Management.",
         },
       ],
     },
