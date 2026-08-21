@@ -86,42 +86,25 @@ function renderBlock(block: Block): string {
   return `<table><caption>${escapeHtml(block.caption)}</caption><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function renderGuide(guide: Guide): string {
-  // A heading and the block under it go inside one keep-together box. CSS
-  // `break-after: avoid` on the heading alone is advisory and Chromium ignores
-  // it often enough to matter: "Where practice sales show up" ended up alone at
-  // the foot of page two with its table overleaf. Wrapping the pair in an
-  // element that cannot be split is the part Chromium actually honours.
-  const body = guide.sections
-    .map((section) => {
-      const [first, ...rest] = section.blocks;
-      const opener = first ? renderBlock(first) : "";
-      const cls = section.startsNewPage ? "keep page-break" : "keep";
-      return (
-        `<div class="${cls}"><h2>${escapeHtml(section.heading)}</h2>${opener}</div>` +
-        rest.map(renderBlock).join("")
-      );
-    })
-    .join("");
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(guide.title)}</title>
-<style>
+// Shared by the single-guide and combined PDFs. The combined manual reuses
+// .page-break (already defined here) to start each guide but the first on a
+// new page, so no extra rules are needed for it.
+const STYLE = `
   @page { size: A4; margin: 18mm 16mm; }
   body { font-family: "Segoe UI", Arial, sans-serif; color: #1b1b1b; font-size: 10.5pt; line-height: 1.5; }
   h1 { font-size: 21pt; margin: 0 0 2mm; }
   .sub { color: #5a5a5a; font-size: 10pt; margin: 0 0 8mm; }
   h2 { font-size: 12.5pt; margin: 0 0 2mm; padding-bottom: 1.5mm; border-bottom: 1px solid #d5d5d5;
        break-after: avoid; page-break-after: avoid; }
-  /* The heading and its first block travel together; see renderGuide. The gap
-     between sections lives on this box rather than on the h2, so a section that
-     starts a page does not also inherit 7mm of dead space above it. */
+  /* The heading and its first block travel together; see renderGuideBody. The
+     gap between sections lives on this box rather than on the h2, so a
+     section that starts a page does not also inherit 7mm of dead space above
+     it. */
   .keep { margin-top: 7mm; break-inside: avoid; page-break-inside: avoid; }
-  /* Set per section by startsNewPage. The top margin goes: a section opening a
-     page should start at the top of it, not 7mm down. */
+  /* Set per section by startsNewPage, and on every guide but the first in the
+     combined PDF. The top margin goes: a section (or guide) opening a page
+     should start at the top of it, not with the .keep block's dead space
+     above it. */
   .page-break { break-before: page; page-break-before: always; margin-top: 0; }
   p { margin: 0 0 2.5mm; orphans: 3; widows: 3; }
   ul { margin: 0 0 3mm; padding-left: 5mm; }
@@ -139,13 +122,66 @@ function renderGuide(guide: Guide): string {
      the table already says what it is, so it would only repeat itself. */
   caption { display: none; }
   .foot { margin-top: 8mm; padding-top: 2mm; border-top: 1px solid #d5d5d5; color: #6a6a6a; font-size: 8.5pt; }
-</style>
+`;
+
+// A heading and the block under it go inside one keep-together box. CSS
+// `break-after: avoid` on the heading alone is advisory and Chromium ignores
+// it often enough to matter: "Where practice sales show up" ended up alone at
+// the foot of page two with its table overleaf. Wrapping the pair in an
+// element that cannot be split is the part Chromium actually honours.
+function renderGuideBody(guide: Guide): string {
+  return guide.sections
+    .map((section) => {
+      const [first, ...rest] = section.blocks;
+      const opener = first ? renderBlock(first) : "";
+      const cls = section.startsNewPage ? "keep page-break" : "keep";
+      return (
+        `<div class="${cls}"><h2>${escapeHtml(section.heading)}</h2>${opener}</div>` +
+        rest.map(renderBlock).join("")
+      );
+    })
+    .join("");
+}
+
+function renderGuide(guide: Guide): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(guide.title)}</title>
+<style>${STYLE}</style>
 </head>
 <body>
 <h1>${escapeHtml(guide.title)}</h1>
 <p class="sub">${escapeHtml(guide.lede)}</p>
-${body}
+${renderGuideBody(guide)}
 <div class="foot">EPos 365, ${escapeHtml(guide.title)}.</div>
+</body>
+</html>`;
+}
+
+/** Every guide back to back, each starting on its own page, as one manual. */
+function renderFullManual(guides: Guide[]): string {
+  const body = guides
+    .map(
+      (guide, index) => `<section class="guide${index > 0 ? " page-break" : ""}">
+<h1>${escapeHtml(guide.title)}</h1>
+<p class="sub">${escapeHtml(guide.lede)}</p>
+${renderGuideBody(guide)}
+</section>`,
+    )
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Full documentation</title>
+<style>${STYLE}</style>
+</head>
+<body>
+${body}
+<div class="foot">EPos 365, full documentation.</div>
 </body>
 </html>`;
 }
@@ -171,6 +207,9 @@ async function readManifest(): Promise<Record<string, string>> {
   }
 }
 
+/** The slug the combined "Full documentation" PDF is written under. */
+const FULL_MANUAL_SLUG = "full-documentation";
+
 async function main() {
   const force = process.argv.includes("--force");
   const outDir = path.join(process.cwd(), "public", "docs");
@@ -180,25 +219,24 @@ async function main() {
   const next: Record<string, string> = {};
   let browser: string | null = null;
 
-  for (const guide of guides) {
-    const html = renderGuide(guide);
+  const printIfChanged = async (slug: string, html: string) => {
     const hash = createHash("sha256").update(html).digest("hex");
-    const pdfPath = path.join(outDir, `${guide.slug}.pdf`);
-    next[guide.slug] = hash;
+    const pdfPath = path.join(outDir, `${slug}.pdf`);
+    next[slug] = hash;
 
     const exists = await access(pdfPath).then(
       () => true,
       () => false,
     );
-    if (!force && exists && manifest[guide.slug] === hash) {
-      console.log(`${guide.slug}.pdf unchanged`);
-      continue;
+    if (!force && exists && manifest[slug] === hash) {
+      console.log(`${slug}.pdf unchanged`);
+      return;
     }
 
     // Only pay for finding a browser once something actually needs printing.
     browser ??= await findBrowser();
 
-    const htmlPath = path.join(tmpdir(), `epos-guide-${guide.slug}.html`);
+    const htmlPath = path.join(tmpdir(), `epos-guide-${slug}.html`);
     try {
       await writeFile(htmlPath, html, "utf8");
       await rm(pdfPath, { force: true });
@@ -210,17 +248,22 @@ async function main() {
         `file:///${htmlPath.replaceAll("\\", "/")}`,
       ]);
       await access(pdfPath);
-      console.log(`${guide.slug}.pdf written`);
+      console.log(`${slug}.pdf written`);
     } finally {
       // finally, not after the call: a print that throws would otherwise leave
       // its scratch file behind in the temp directory on every failed run.
       await rm(htmlPath, { force: true });
     }
+  };
+
+  for (const guide of guides) {
+    await printIfChanged(guide.slug, renderGuide(guide));
   }
+  await printIfChanged(FULL_MANUAL_SLUG, renderFullManual(guides));
 
   // A renamed or deleted guide leaves its old PDF sitting in public/docs, still
   // served and still committed, describing a guide that no longer exists.
-  const slugs = new Set(guides.map((guide) => guide.slug));
+  const slugs = new Set([...guides.map((guide) => guide.slug), FULL_MANUAL_SLUG]);
   for (const file of await readdir(outDir)) {
     if (!file.endsWith(".pdf")) continue;
     if (slugs.has(file.slice(0, -4))) continue;

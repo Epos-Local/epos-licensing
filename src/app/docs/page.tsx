@@ -25,6 +25,10 @@ export default function DocsIndexPage() {
         link to a shop.
       </p>
 
+      <a href="/docs/full-documentation.pdf" download className="vbg-button vbg-span-7">
+        Download full documentation (PDF)
+      </a>
+
       <div className="vbg-table-wrap vbg-span-12">
         <table>
           <caption className="vbg-visually-hidden">
