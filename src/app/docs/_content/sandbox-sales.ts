@@ -32,20 +32,28 @@ export const sandboxSales: Guide = {
       blocks: [
         {
           kind: "p",
-          text: "Press `Ctrl` + `Shift` + `S`. There is no button for it anywhere, so the shortcut is the only way in or out.",
+          text: "Open the menu from the button at the top right of the sales screen and choose Sandbox mode. `Ctrl` + `Shift` + `S` does the same thing if you would rather use the keyboard.",
         },
         {
           kind: "ul",
           items: [
             "Only a Manager or Administrator can turn it on, and you will be asked for your PIN even though you are already signed in.",
-            "For anyone below that level the shortcut simply does nothing.",
+            "Anyone below that level does not see the menu entry at all, and the shortcut does nothing for them.",
             "Turning it off is not restricted at all: no PIN, and any user can do it.",
             "The sale on screen has to be empty, going in or coming out, so finish or clear it first.",
           ],
         },
         {
           kind: "p",
-          text: "While sandbox mode is on, a SANDBOX MODE badge sits at the top of the sales screen, next to the menu button. No badge means you are on the live till.",
+          text: "While sandbox mode is on, a SANDBOX MODE badge sits at the top of the sales screen, next to the menu button. Tap the badge to go back to the live till. No badge means you are already on it.",
+        },
+        {
+          kind: "p",
+          text: "The way out is the badge rather than the menu because the menu is closed while sandbox mode is on. The badge is on screen for exactly as long as there is a practice till to leave, so it is always there when you need it.",
+        },
+        {
+          kind: "p",
+          text: "If your shop has no use for a practice till, turn the whole feature off under Settings -> Order & payment -> Enable sandbox (training) mode. The menu entry disappears and the shortcut stops working for everyone, including administrators. It is on when the till is installed.",
         },
       ],
     },

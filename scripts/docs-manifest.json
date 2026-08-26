@@ -1,5 +1,5 @@
 {
-  "sandbox-sales": "0f38bdf5cfb3f36adac5a4d2d1d3bbed0bbbaa2f25e6ca2e8fb76be22fa803d4",
+  "sandbox-sales": "4be63e32f89b1616fa714dc1c1328f6f570a2ee11a248fe5e0490701c454ce05",
   "low-stock-warnings": "16861073e72f07207e888fc8780de48caa496371c2b178cfae5395d40757a084",
   "expiry-dates": "c56cea59ec20a9b4d5bd5e16529c13e4d82daf1c043ea4801e1c2071ed57b665",
   "slow-moving-stock": "ec603342e3b6a7b3777dcd772395b0ca20563438b6e56ebdcbc10e4f1177da0b",
@@ -13,5 +13,5 @@
   "product-import": "3a66ff28d2975fe533b2f8dc6aa2ff6238d25f3faaaefb459e5f31dbef759028",
   "promotions": "6737cb7d2a925b1220c8245c4ffbaab75a863b018324fbfe4a70d1eace4bf3c8",
   "database-backup": "1a59f83e21cc534a7648c1ef7eaa84394c870bd1eb0223f6480f7fd8c149aac9",
-  "full-documentation": "d2ec177487a2fdc3a3664f21c03ee13612ae726bac77b1a1afd238d8078db305"
+  "full-documentation": "8a2803019027f14541ada0e2fc1df46e0ff3b36046abdb40f5acb1dbbe92b5b2"
 }
