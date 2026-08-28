@@ -83,13 +83,15 @@ model Shop {
     @@index([customerId])
 }
 
-/// One shared template bundle. Deliberately just `general` for now — a
-/// config-driven single template, per SUBDOMAIN_ARCHITECTURE.md's "don't
-/// build a second template until a second one is actually needed." Add
-/// values here (never rename/remove one already in use) as real template
-/// families are built.
+/// One shared template bundle per shop. `restaurant` added 2026-08-29 —
+/// the Postgres enum value already existed (added by epos_corporate_web's
+/// schema, the app that actually renders templates) but this schema, the
+/// only writer of Shop.templateId, hadn't been updated to know about it,
+/// so a shop could never actually be set to it. Add values here (never
+/// rename/remove one already in use) as real template families are built.
 enum TemplateId {
     general
+    restaurant
 }
 
 /// `expired` is deliberately absent: expiry is derived from `validUntil` on
