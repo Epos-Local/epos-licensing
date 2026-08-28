@@ -268,3 +268,59 @@ export async function setCustomerPassword(
 
   return { ok: true };
 }
+
+/**
+ * Self-service password change — distinct from `setCustomerPassword`
+ * (the admin panel's action, no current-password check, since an admin
+ * already carries authority over the account). This one requires proving
+ * the current password first: reaching this function only means holding a
+ * valid session cookie, and a stolen/leaked session token should not be
+ * enough on its own to lock the real owner out by changing their password.
+ */
+export async function changeCustomerPassword(
+  customerId: string,
+  currentPassword: string,
+  newPassword: unknown,
+): Promise<{ ok: boolean; error?: string }> {
+  const customer = await db.customer.findUnique({ where: { id: customerId } });
+  if (!customer?.passwordHash) return { ok: false, error: "Customer not found." };
+
+  const matches = await compare(currentPassword, customer.passwordHash);
+  if (!matches) return { ok: false, error: "Current password is incorrect." };
+
+  const parsed = customerPasswordRule.safeParse(newPassword);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+
+  const passwordHash = await hash(parsed.data, BCRYPT_COST);
+  await db.customer.update({ where: { id: customerId }, data: { passwordHash } });
+
+  return { ok: true };
+}
+
+const updateProfileSchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  email: emailRule,
+});
+
+/** Self-service name/email update — the account-owner's own dashboard, not the admin panel. */
+export async function updateCustomerProfile(
+  customerId: string,
+  input: unknown,
+): Promise<{ ok: boolean; error?: string }> {
+  const parsed = updateProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+  const { name, email } = parsed.data;
+
+  const existing = await db.customer.findUnique({ where: { email } });
+  if (existing && existing.id !== customerId) {
+    return { ok: false, error: `${email} is already in use by another account.` };
+  }
+
+  await db.customer.update({ where: { id: customerId }, data: { name: name ?? null, email } });
+
+  return { ok: true };
+}
