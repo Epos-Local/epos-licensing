@@ -4,10 +4,14 @@ import { Converter } from "./converter";
  * Turns a product catalogue exported from another till system into the exact CSV
  * EPos 365's own product import reads.
  *
- * Behind the panel's sign-in rather than on the public docs site: it is a tool a
- * reseller runs while moving a shop across, not something a shop owner needs, and
- * the copy here describes another vendor's file format — which belongs in our own
- * back office, not on a page a customer might land on.
+ * Public, with no sign-in: the person moving a catalogue across is usually the
+ * shop, and a shop has no panel account. It is safe to leave open because the
+ * conversion happens entirely in the visitor's browser — there is no upload, no
+ * database read and no session, so there is nothing here to gate.
+ *
+ * Nothing on this page may name the till system a catalogue is coming from. It
+ * is a public URL, and naming another product on it is exactly what the rest of
+ * the product avoids.
  *
  * Most files need no conversion at all. The importer already resolves columns by
  * header name, already reads slash-delimited group paths as a nested tree, and
