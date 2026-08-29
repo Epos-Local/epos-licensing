@@ -82,16 +82,23 @@ const STATE_UNKNOWN_KEY = "invalid_key";
  */
 const RECLAIM_AFTER_DAYS = 90;
 
-/**
- * Minimum gap between two self-releases of the same device.
+/*
+ * There was a 24-hour cooldown between two self-releases of the same device
+ * here, aimed at the release → re-activate → release loop that would let a shop
+ * time-share more tills than it bought.
  *
- * A released device may immediately re-activate (the deliberate hardware-swap-
- * back path below), so release → re-activate → release is the loop that would
- * let a shop time-share more tills than it bought. The cooldown sits on the
- * second release and makes that impractical without inconveniencing the real
- * case, which happens once per hardware change.
+ * Removed deliberately. It punished the honest case far harder than the abusive
+ * one: a shop replacing a till, re-imaging one, or recovering from a failed
+ * activation hits it immediately and is then locked out of its own licence for a
+ * day, with no way for anyone to clear it. The loop it guarded against is better
+ * handled by `lastSelfReleaseAt`, which is still written on every release and is
+ * visible in the panel — a device releasing itself over and over is a support
+ * conversation, not a reason to take a working till off the air.
+ *
+ * `RetryAfterUtc` stays in the response shape, always null, because tills in the
+ * field still read it. Do not reintroduce a hard block without giving the vendor
+ * a way to clear it from the panel.
  */
-const SELF_RELEASE_COOLDOWN_HOURS = 24;
 
 // ---------------------------------------------------------------------------
 // POST /activate
@@ -430,24 +437,6 @@ export async function releaseOwnDevice(
       409,
       `a ${device.status} device holds no slot to release`,
     );
-  }
-
-  const cooldownEnds = device.lastSelfReleaseAt
-    ? new Date(
-        device.lastSelfReleaseAt.getTime() +
-          SELF_RELEASE_COOLDOWN_HOURS * 3_600_000,
-      )
-    : null;
-
-  if (cooldownEnds && cooldownEnds > new Date()) {
-    return {
-      status: 429,
-      body: {
-        Ok: false,
-        Error: `this device was already released in the last ${SELF_RELEASE_COOLDOWN_HOURS} hours`,
-        RetryAfterUtc: cooldownEnds.toISOString(),
-      },
-    };
   }
 
   await db.device.update({

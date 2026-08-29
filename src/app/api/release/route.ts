@@ -21,7 +21,6 @@ import { releaseOwnDevice } from "~/server/licensing/service";
  * - 200 { Ok: true }        slot freed, or already free (idempotent)
  * - 404                     unknown key, or a device not registered on it
  * - 409                     the device holds no slot (pending/rejected)
- * - 429 { RetryAfterUtc }   released too recently
  *
  * The slot being free does not brick the till's cached license: the client
  * clears its own state on success, and the device's next check-in gets the same
