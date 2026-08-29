@@ -1,7 +1,10 @@
 import { z } from "zod";
 
-import { AuditEventType } from "generated/prisma";
+import { AuditEventType, TemplateId } from "generated/prisma";
 import { db } from "~/server/db";
+
+/** Keep in sync with the `TemplateId` enum — Zod can't read it from the Prisma enum directly. */
+const templateIdRule = z.nativeEnum(TemplateId).default(TemplateId.general);
 
 /**
  * Subdomain activation for a customer's own shop — the self-serve half of
@@ -49,10 +52,14 @@ export async function checkSlugAvailability(slugInput: unknown): Promise<SlugChe
 
 const createShopSchema = z.object({
   businessName: z.string().trim().min(1, "Business name is required.").max(120),
+  templateId: templateIdRule,
 });
 
 export type CreateShopResult =
-  | { ok: true; shop: { id: string; name: string; subdomain: string | null; isPublished: boolean } }
+  | {
+      ok: true;
+      shop: { id: string; name: string; subdomain: string | null; isPublished: boolean; templateId: TemplateId };
+    }
   | { ok: false; error: string };
 
 /**
@@ -79,19 +86,30 @@ export async function createShop(customerId: string, input: unknown): Promise<Cr
   }
 
   const shop = await db.shop.create({
-    data: { name: parsed.data.businessName, email: customer.email, customerId },
+    data: {
+      name: parsed.data.businessName,
+      email: customer.email,
+      customerId,
+      templateId: parsed.data.templateId,
+    },
   });
   await db.auditEvent.create({
     data: {
       type: AuditEventType.shop_updated,
       actor: "client",
-      summary: `${shop.name} added as a new shop`,
+      summary: `${shop.name} added as a new shop (${shop.templateId})`,
     },
   });
 
   return {
     ok: true,
-    shop: { id: shop.id, name: shop.name, subdomain: shop.subdomain, isPublished: shop.isPublished },
+    shop: {
+      id: shop.id,
+      name: shop.name,
+      subdomain: shop.subdomain,
+      isPublished: shop.isPublished,
+      templateId: shop.templateId,
+    },
   };
 }
 
@@ -103,11 +121,18 @@ export type ActivateSubdomainResult =
  * The only place `Shop.subdomain` is ever written to a non-null value.
  * `customerId` must be the caller's own — enforced by the route handler
  * resolving it from the session token, never trusted from the request body.
+ *
+ * `templateIdInput` is optional: a shop created via self-registration never
+ * got a template choice (it defaults to `general`), so activation is the
+ * first moment one can be picked. A shop created through `createShop`
+ * already has its real template — passing nothing here leaves it alone
+ * rather than silently resetting it back to `general`.
  */
 export async function activateSubdomain(
   customerId: string,
   shopId: string,
   slugInput: unknown,
+  templateIdInput?: unknown,
 ): Promise<ActivateSubdomainResult> {
   const shop = await db.shop.findUnique({ where: { id: shopId } });
   if (shop?.customerId !== customerId) {
@@ -122,6 +147,9 @@ export async function activateSubdomain(
     return { ok: false, error: check.reason ?? "That name isn't available." };
   }
   const slug = slugRule.parse(slugInput);
+
+  const parsedTemplateId = z.nativeEnum(TemplateId).optional().safeParse(templateIdInput);
+  const templateId = parsedTemplateId.success ? parsedTemplateId.data : undefined;
 
   const customer = await db.customer.findUnique({
     where: { id: customerId },
@@ -144,7 +172,12 @@ export async function activateSubdomain(
 
     const updated = await tx.shop.update({
       where: { id: shopId },
-      data: { subdomain: slug, isPublished: true, publishedAt: new Date() },
+      data: {
+        subdomain: slug,
+        isPublished: true,
+        publishedAt: new Date(),
+        ...(templateId ? { templateId } : {}),
+      },
     });
     await tx.auditEvent.create({
       data: {

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { compare, hash } from "bcryptjs";
 import { z } from "zod";
 
-import { AuditEventType } from "generated/prisma";
+import { AuditEventType, TemplateId } from "generated/prisma";
 import { BCRYPT_COST, emailRule } from "~/server/admins";
 import { db } from "~/server/db";
 
@@ -32,6 +32,7 @@ export interface CustomerShopSummary {
   name: string;
   subdomain: string | null;
   isPublished: boolean;
+  templateId: TemplateId;
 }
 
 export interface CustomerAccount {
@@ -50,8 +51,20 @@ export interface CustomerAccount {
   shops: CustomerShopSummary[];
 }
 
-function toShopSummary(shop: { id: string; name: string; subdomain: string | null; isPublished: boolean }): CustomerShopSummary {
-  return { id: shop.id, name: shop.name, subdomain: shop.subdomain, isPublished: shop.isPublished };
+function toShopSummary(shop: {
+  id: string;
+  name: string;
+  subdomain: string | null;
+  isPublished: boolean;
+  templateId: TemplateId;
+}): CustomerShopSummary {
+  return {
+    id: shop.id,
+    name: shop.name,
+    subdomain: shop.subdomain,
+    isPublished: shop.isPublished,
+    templateId: shop.templateId,
+  };
 }
 
 export interface CustomerAuthResult {

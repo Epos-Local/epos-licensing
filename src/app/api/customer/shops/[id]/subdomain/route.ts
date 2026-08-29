@@ -30,8 +30,9 @@ export async function POST(
     return json({ ok: false, error: "Expected a JSON request body." }, 400);
   }
   const slug = body && typeof body === "object" ? (body as Record<string, unknown>).slug : null;
+  const templateId = body && typeof body === "object" ? (body as Record<string, unknown>).templateId : undefined;
 
-  const result = await activateSubdomain(customer.id, shopId, slug);
+  const result = await activateSubdomain(customer.id, shopId, slug, templateId);
 
   return json(result, result.ok ? 200 : 422);
 }
