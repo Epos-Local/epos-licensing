@@ -7,11 +7,25 @@
  * tree, and already matches tax by percent — a real export from the other system
  * imports as-is. Verified end to end against the live importer, not assumed.
  *
- * What it does NOT already survive is a file written by a machine on a
- * comma-decimal locale, which exports semicolon-delimited with "35,77" for
- * numbers. That file fails at the header row with "couldn't find a Name and/or
- * Price column", which is true but useless — the header is there, just split on
- * the wrong character. That is the case this module exists for.
+ * What it does NOT survive is a file that has been through a spreadsheet on a
+ * comma-decimal locale, which saves semicolon-delimited with "35,77" for numbers.
+ * That file fails at the header row with "couldn't find a Name and/or Price
+ * column", which is true but useless — the header is there, just split on the
+ * wrong character. Note the source exporter itself never writes that shape: it
+ * formats every number with InvariantCulture and joins on a comma. The damage
+ * happens in between, when someone opens the export to tidy it and saves it back.
+ *
+ * Three things the source exporter does write that need reducing here, all read
+ * off its own code rather than guessed:
+ *
+ *   - Barcode holds ALL of a product's barcodes, pipe-joined. Our column holds
+ *     one, and the POS stores the cell verbatim, so an unconverted "123|456"
+ *     becomes a single barcode that never scans.
+ *   - Tax holds all of a product's rates, pipe-joined, each optionally suffixed
+ *     "F" for a fixed amount. The POS matches on percent, so "23|5F" matches
+ *     nothing and the product quietly takes the default rate.
+ *   - A value is quoted only when it contains a comma, so a name like 6" Sub
+ *     arrives with a bare quote mid-field. See parseDelimited.
  *
  * Everything here is pure: text in, text out, no DOM and no I/O, so the same code
  * runs in the browser and in a script.
@@ -144,6 +158,12 @@ export interface NormalizeReport {
   duplicateBarcodes: string[];
   rowsPricedZero: number;
   rowsDisabled: number;
+  /** Extra barcodes past the first, which our one-barcode column cannot carry. */
+  extraBarcodes: string[];
+  /** Rows whose Tax cell listed more than one rate. Only the first is kept. */
+  multiTaxRows: number;
+  /** Rows with a fixed-amount tax (an "F" suffix), which we have no equivalent for. */
+  fixedTaxRows: number;
 }
 
 export interface NormalizeResult {
@@ -188,7 +208,12 @@ function parseDelimited(text: string, delimiter: string): string[][] {
       continue;
     }
 
-    if (char === '"') {
+    if (char === '"' && field === "") {
+      // Only at the START of a field. RFC 4180 says a quote elsewhere is a
+      // literal, and that matters here: the source system's exporter only wraps
+      // a value in quotes when it contains a comma, so a name like 6" Sub comes
+      // through unquoted with a bare quote in the middle. Treating that as an
+      // opening quote would swallow the rest of the line and shear the file.
       inQuotes = true;
     } else if (char === delimiter) {
       row.push(field);
@@ -294,6 +319,41 @@ export function splitGroupPath(path: string): string[] {
   return segments.map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
+/**
+ * The source system writes several barcodes into the one Barcode cell, joined
+ * with a pipe. Our Barcode column holds one, and the POS importer stores the
+ * whole cell verbatim — so an unconverted "123|456" is saved as a single barcode
+ * that no scanner will ever match, silently, with no error anywhere. Keeping the
+ * first and naming the rest is the only honest option a one-column format allows.
+ */
+function splitPiped(value: string): string[] {
+  return value
+    .split("|")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+/**
+ * Tax is written the same way — pipe-joined rates, each optionally suffixed "F"
+ * for a fixed-amount tax rather than a percentage. The POS matches a rate by
+ * percent, so "23|5F" matches nothing, is reported as an error row, and the
+ * product silently takes the default rate instead.
+ */
+function firstTaxRate(value: string): {
+  rate: string;
+  multiple: boolean;
+  fixed: boolean;
+} {
+  const parts = splitPiped(value);
+  const first = parts[0] ?? "";
+  const isFixed = /F$/i.test(first);
+  return {
+    rate: isFixed ? first.replace(/F$/i, "") : first,
+    multiple: parts.length > 1,
+    fixed: isFixed || parts.some((part) => /F$/i.test(part)),
+  };
+}
+
 export function normalizeProductCsv(input: string): NormalizeResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -378,6 +438,9 @@ export function normalizeProductCsv(input: string): NormalizeResult {
   let uncategorizedRows = 0;
   let rowsPricedZero = 0;
   let rowsDisabled = 0;
+  let multiTaxRows = 0;
+  let fixedTaxRows = 0;
+  const extraBarcodes: string[] = [];
 
   const out: string[] = [CANONICAL_COLUMNS.join(",")];
 
@@ -394,6 +457,23 @@ export function normalizeProductCsv(input: string): NormalizeResult {
         COMMA_DECIMAL.test(value)
       ) {
         value = toDotDecimal(value);
+      }
+
+      // Both of these arrive pipe-joined from the source system and both are
+      // single-valued here. Reduced rather than passed through: an unconverted
+      // cell is not a harmless oddity, it is a barcode that never scans and a
+      // tax that silently falls back to the default.
+      if (column === "Barcode" && value.includes("|")) {
+        const codes = splitPiped(value);
+        value = codes[0] ?? "";
+        extraBarcodes.push(...codes.slice(1));
+      }
+
+      if (column === "Tax" && value.length > 0) {
+        const tax = firstTaxRate(value);
+        if (tax.multiple) multiTaxRows++;
+        if (tax.fixed) fixedTaxRows++;
+        value = tax.rate;
       }
 
       return value;
@@ -443,6 +523,28 @@ export function normalizeProductCsv(input: string): NormalizeResult {
     }
   }
 
+  if (extraBarcodes.length > 0) {
+    warnings.push(
+      `${extraBarcodes.length} extra barcode(s) could not be carried: a product can have several ` +
+        `in the source file but only one in this format. Add the rest by hand after importing: ` +
+        `${extraBarcodes.join(", ")}`,
+    );
+  }
+
+  if (multiTaxRows > 0) {
+    warnings.push(
+      `${multiTaxRows} product(s) had more than one tax rate. Only the first is kept — the till ` +
+        `applies one rate per product.`,
+    );
+  }
+
+  if (fixedTaxRows > 0) {
+    warnings.push(
+      `${fixedTaxRows} product(s) had a fixed-amount tax rather than a percentage. There is no ` +
+        `equivalent, so the amount is treated as a percentage — check those products after importing.`,
+    );
+  }
+
   const duplicateNames = [...nameGroupSeen.entries()]
     .filter(([, count]) => count > 1)
     .map(([key]) => {
@@ -468,6 +570,9 @@ export function normalizeProductCsv(input: string): NormalizeResult {
     duplicateBarcodes,
     rowsPricedZero,
     rowsDisabled,
+    extraBarcodes,
+    multiTaxRows,
+    fixedTaxRows,
   };
 
   return { ok: true, csv: out.join("\r\n") + "\r\n", errors, warnings, report };

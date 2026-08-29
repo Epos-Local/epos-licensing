@@ -11,10 +11,14 @@
  *
  * The baseline fixture is a real export from the till system a customer is
  * migrating from, trimmed to a handful of rows. It already imports into EPos 365
- * untouched; it is here as the control. The locale fixture is the one that does
- * not, and is the reason this converter exists: a machine set to a comma-decimal
- * locale writes semicolons and "35,77", and the POS importer rejects it at the
- * header row.
+ * untouched; it is here as the control.
+ *
+ * The locale fixture is the one that does not import, and it does not come from
+ * that system's exporter — that writes numbers with InvariantCulture and joins
+ * on a comma, always. It comes from the step in between: a shop opens the export
+ * in a spreadsheet to tidy it and saves it again, and on a comma-decimal locale
+ * the spreadsheet writes semicolons and "35,77". The POS importer then rejects it
+ * at the header row, which is the failure this converter exists to absorb.
  */
 
 import { strict as assert } from "node:assert";
@@ -27,6 +31,7 @@ import {
 } from "../src/app/_lib/product-csv";
 
 const HEADER = CANONICAL_COLUMNS.join(",");
+const CRLF = "\r\n";
 
 /** The control: comma-delimited, dot decimals, exactly as exported. */
 const baseline = [
@@ -177,6 +182,47 @@ check("the preview counts what the import will decide", () => {
   assert.deepEqual(base.report?.taxValues, ["23"]);
   assert.deepEqual(base.report?.groupPaths, ["Burger Menu", "pran/coke"]);
   assert.equal(base.report?.rowsPricedZero, 1);
+});
+
+check("several barcodes in one cell keep the first and name the rest", () => {
+  const result = normalizeProductCsv(
+    [HEADER, "x,,,111|222|333,,0,0,1,,1,0,1,0,1,,0,,,,,"].join(CRLF),
+  );
+  assert.equal(result.ok, true, result.errors.join("; "));
+  const row = result.csv?.split(CRLF)[1] ?? "";
+  assert.ok(row.startsWith("x,,,111,"), `barcode not reduced: ${row}`);
+  assert.deepEqual(result.report?.extraBarcodes, ["222", "333"]);
+  assert.ok(result.warnings.some((w) => w.includes("222, 333")));
+});
+
+check("several tax rates keep the first, and a fixed tax is flagged", () => {
+  const result = normalizeProductCsv(
+    [HEADER, "x,,,,,0,0,1,23|5F,1,0,1,0,1,,0,,,,,"].join(CRLF),
+  );
+  assert.equal(result.ok, true, result.errors.join("; "));
+  const row = result.csv?.split(CRLF)[1] ?? "";
+  assert.ok(row.includes(",1,23,1,"), `tax not reduced: ${row}`);
+  assert.equal(result.report?.multiTaxRows, 1);
+  assert.equal(result.report?.fixedTaxRows, 1);
+});
+
+check("a bare quote inside an unquoted field does not shear the file", () => {
+  // The source exporter only quotes a value when it contains a comma, so a
+  // name like 6" Sub arrives with a naked quote in the middle of the field.
+  const result = normalizeProductCsv(
+    [
+      HEADER,
+      '6" Sub,Rolls,,,,0,0,4.50,,1,0,1,0,1,,0,,,,,',
+      "Tea,Drinks,,,,0,0,1,,1,0,1,0,1,,0,,,,,",
+    ].join(CRLF),
+  );
+  assert.equal(result.ok, true, result.errors.join("; "));
+  assert.equal(result.report?.rowCount, 2);
+  const row = result.csv?.split(CRLF)[1] ?? "";
+  assert.ok(
+    row.startsWith('"6"" Sub",Rolls'),
+    `first field was mangled: ${row}`,
+  );
 });
 
 console.log(
