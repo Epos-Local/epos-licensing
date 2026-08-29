@@ -20,6 +20,7 @@ export function SidebarNav({ pendingCount }: { pendingCount: number }) {
     { href: "/releases", label: "Releases" },
     { href: "/audit", label: "Audit log" },
     { href: "/admins", label: "Administrators" },
+    { href: "/tools/csv-converter", label: "Catalogue converter" },
   ];
 
   return (

@@ -25,7 +25,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify:admin": "tsx --env-file=.env scripts/verify-admin.ts",
-    "verify": "pnpm verify:signing && pnpm verify:endpoints && pnpm verify:admin"
+    "verify": "pnpm verify:signing && pnpm verify:endpoints && pnpm verify:admin && pnpm verify:csv",
+    "verify:csv": "tsx scripts/verify-csv-converter.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
