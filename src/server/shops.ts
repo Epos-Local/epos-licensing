@@ -47,6 +47,54 @@ export async function checkSlugAvailability(slugInput: unknown): Promise<SlugChe
   return { available: true };
 }
 
+const createShopSchema = z.object({
+  businessName: z.string().trim().min(1, "Business name is required.").max(120),
+});
+
+export type CreateShopResult =
+  | { ok: true; shop: { id: string; name: string; subdomain: string | null; isPublished: boolean } }
+  | { ok: false; error: string };
+
+/**
+ * Adds another Shop to an existing customer's account — the self-serve path
+ * for using a `shopLimit` slot beyond the one Shop registration already
+ * creates. Gated on the same `shopLimit` number that gates subdomain
+ * activation: a slot only matters once it can carry a live storefront, so
+ * capping row creation there too keeps "N of shopLimit" in the dashboard
+ * meaningful instead of letting shops accumulate with nowhere to go.
+ */
+export async function createShop(customerId: string, input: unknown): Promise<CreateShopResult> {
+  const parsed = createShopSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid business name." };
+  }
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    include: { shops: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+  if (customer.shops.length >= customer.shopLimit) {
+    return { ok: false, error: "You've used all of your available shop slots — contact support." };
+  }
+
+  const shop = await db.shop.create({
+    data: { name: parsed.data.businessName, email: customer.email, customerId },
+  });
+  await db.auditEvent.create({
+    data: {
+      type: AuditEventType.shop_updated,
+      actor: "client",
+      summary: `${shop.name} added as a new shop`,
+    },
+  });
+
+  return {
+    ok: true,
+    shop: { id: shop.id, name: shop.name, subdomain: shop.subdomain, isPublished: shop.isPublished },
+  };
+}
+
 export type ActivateSubdomainResult =
   | { ok: true; subdomain: string }
   | { ok: false; error: string };

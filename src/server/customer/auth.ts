@@ -27,10 +27,18 @@ export const customerPasswordRule = z
   .min(8, "Use a password of at least 8 characters.")
   .max(200, "That password is too long.");
 
+export interface CustomerShopSummary {
+  id: string;
+  name: string;
+  subdomain: string | null;
+  isPublished: boolean;
+}
+
 export interface CustomerAccount {
   id: string;
   email: string;
   name: string | null;
+  /** First shop on the account — kept for existing single-shop callers (leads.ts, license lookup). */
   shopId: string;
   shopName: string;
   /** How many of this account's shops may have an active subdomain. */
@@ -38,6 +46,12 @@ export interface CustomerAccount {
   /** This shop's own subdomain, once activated — null until then. */
   subdomain: string | null;
   isPublished: boolean;
+  /** Every shop this account owns — empty-or-single-element until multi-shop accounts are used in practice. */
+  shops: CustomerShopSummary[];
+}
+
+function toShopSummary(shop: { id: string; name: string; subdomain: string | null; isPublished: boolean }): CustomerShopSummary {
+  return { id: shop.id, name: shop.name, subdomain: shop.subdomain, isPublished: shop.isPublished };
 }
 
 export interface CustomerAuthResult {
@@ -145,6 +159,7 @@ export async function registerCustomer(input: unknown): Promise<CustomerAuthResu
       shopLimit: customer.shopLimit,
       subdomain: shop.subdomain,
       isPublished: shop.isPublished,
+      shops: [toShopSummary(shop)],
     },
   };
 }
@@ -171,8 +186,8 @@ export async function signInCustomer(input: unknown): Promise<CustomerAuthResult
   const matches = await compare(password, customer.passwordHash);
   if (!matches) return invalid;
 
-  // `shops[0]` — registration always creates exactly one; picking a specific
-  // shop to show is only meaningful once an account can hold more than one.
+  // `shops[0]` — the "primary" shop for callers that only expect one; the
+  // full list is returned separately below for the dashboard's shop picker.
   const shop = customer.shops[0];
   if (!shop) return invalid;
 
@@ -195,6 +210,7 @@ export async function signInCustomer(input: unknown): Promise<CustomerAuthResult
       shopLimit: customer.shopLimit,
       subdomain: shop.subdomain,
       isPublished: shop.isPublished,
+      shops: customer.shops.map(toShopSummary),
     },
   };
 }
@@ -212,7 +228,7 @@ export async function customerFromSessionToken(
 
   if (!session || session.expires < new Date()) return null;
 
-  // `shops[0]` — same "exactly one, for now" assumption as signInCustomer.
+  // `shops[0]` — the "primary" shop for callers that only expect one.
   const shop = session.customer.shops[0];
   if (!shop) return null;
 
@@ -228,6 +244,7 @@ export async function customerFromSessionToken(
     shopLimit: session.customer.shopLimit,
     subdomain: shop.subdomain,
     isPublished: shop.isPublished,
+    shops: session.customer.shops.map(toShopSummary),
   };
 }
 
